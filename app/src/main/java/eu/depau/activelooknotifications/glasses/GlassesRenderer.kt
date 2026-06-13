@@ -19,6 +19,9 @@ import eu.depau.glasslayout.core.layout.LayoutSolver
 import eu.depau.glasslayout.core.model.Element
 import eu.depau.glasslayout.core.model.FontToken
 import eu.depau.glasslayout.core.render.RenderCommand
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Façade over the glasslayout engine. Keeps the imperative API the [eu.depau.activelooknotifications.display.DisplayController]
@@ -111,32 +114,34 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
 
     fun renderPeek(notif: NotifItem, status: StatusInfo, contentYOffset: Int = 0) {
         val dg = contentYOffset == 0
+        val w = Const.SCREEN_W - 2 * Const.MARGIN_X
+        val title = shapeLines(notif.title, FontToken.Medium, Const.PEEK_TITLE_LINES, w)
+        val body = shapeLines(notif.sanitizedBody, FontToken.Small, Const.PEEK_BODY_LINES, w)
+        present(HudScreens.peek(statusModel(status, idle = false), title, body, dg, contentYOffset))
+    }
+
+    /** Render page [page] of the gesture-opened notification list. */
+    fun renderNotifList(items: List<NotifItem>, page: Int, status: StatusInfo, contentYOffset: Int = 0) {
+        val dg = contentYOffset == 0
+        val rows = buildListRows(items)
+        val scrollPx = page * pageContentHeight()
         present(
-            HudScreens.peek(
+            HudScreens.notifList(
                 statusModel(status, idle = false),
-                shapeOne(notif.title, FontToken.Medium),
-                shapeOne(notif.bodyFirstLine, FontToken.Small),
+                rows,
+                statusIcons.bullet(Const.BULLET_SIZE),
+                scrollPx,
                 dg,
-                contentYOffset
+                contentYOffset,
             )
         )
     }
 
-    fun renderOpen(notif: NotifItem, lines: List<List<Inline>>, offset: Int, status: StatusInfo, contentYOffset: Int = 0) {
-        val scrollPx = offset * measurer.linePitch(FontToken.Small)
-        val showScrollbar = Const.SHOW_SCROLLBAR && lines.size > visibleBodyLines()
+    /** Glance shown when a gesture fires with nothing posted. */
+    fun renderNoNotifs(status: StatusInfo, contentYOffset: Int = 0) {
         val dg = contentYOffset == 0
-        present(
-            HudScreens.open(
-                statusModel(status, idle = false),
-                shapeOne(notif.title, FontToken.Medium),
-                lines,
-                scrollPx,
-                showScrollbar,
-                dg,
-                contentYOffset
-            )
-        )
+        val msg = shapeOne("No notifications", FontToken.Medium)
+        present(HudScreens.peek(statusModel(status, idle = false), listOf(msg), emptyList(), dg, contentYOffset))
     }
 
     /** Resolve the phone/glasses [StatusInfo] into icon bitmaps + a primitive battery for [HudScreens]. */
@@ -161,28 +166,68 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
         return StatusBarModel(glasses, phone, right, px)
     }
 
-    /** Word-wrap a notification body to the open-view body width, shaped into inline runs. */
-    fun wrapBody(text: String): List<List<Inline>> =
-        shaper.shape(text, fontPx(FontToken.Small), bodyWidth(), Int.MAX_VALUE)
-
     private fun shapeOne(text: String, font: FontToken): List<Inline> =
         shaper.shape(text, fontPx(font), Const.SCREEN_W - 2 * Const.MARGIN_X, 1).firstOrNull() ?: emptyList()
 
+    private fun shapeLines(text: String, font: FontToken, maxLines: Int, widthPx: Int): List<List<Inline>> =
+        shaper.shape(text, fontPx(font), widthPx, maxLines)
+
     private fun fontPx(font: FontToken): Int = fonts.resolve(font).heightPx
 
-    /** How many body lines fit below the title in the open view. */
-    fun visibleBodyLines(): Int {
-        val statusH = measurer.lineHeight(FontToken.Small)
-        val titleH = measurer.lineHeight(FontToken.Medium)
-        val pitch = measurer.linePitch(FontToken.Small)
-        val cell = measurer.lineHeight(FontToken.Small)
-        val bodyAreaH = Const.SCREEN_H - Const.TOP_MARGIN - Const.BOTTOM_MARGIN -
-            statusH - Const.STATUS_CONTENT_GAP - titleH - Const.STATUS_CONTENT_GAP
-        return (((bodyAreaH - cell) / pitch) + 1).coerceAtLeast(1)
+    // --- Notification list: row construction + pagination height math ---
+
+    private val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+    private fun listContentWidth(): Int = Const.SCREEN_W - 2 * Const.MARGIN_X
+
+    /** Pre-shape the whole list into [ListRow]s (heights become deterministic for pagination). */
+    private fun buildListRows(items: List<NotifItem>): List<ListRow> {
+        val w = listContentWidth()
+        // App name shares the header row with the icon + " HH:mm"; ellipsize it to the leftover.
+        val appNameW = (w - Const.LIST_ICON_SIZE - 2 * Const.LIST_HEADER_GAP -
+            measurer.measureWidth(" 00:00", FontToken.Small)).coerceAtLeast(1)
+        val rows = ArrayList<ListRow>()
+        rows += ListRow.Sep
+        for (it in items) {
+            val time = timeFmt.format(Date(it.postTime))
+            val appName = shaper.shape(it.appName, fontPx(FontToken.Small), appNameW, 1).firstOrNull() ?: emptyList()
+            rows += ListRow.Header(it.listIconBitmap, appName, time)
+            for (line in shapeLines(it.title, FontToken.Small, Const.LIST_MAX_TITLE_LINES, w)) {
+                rows += ListRow.Line(line, FontToken.Small)
+            }
+            for (line in shapeLines(it.sanitizedBody, FontToken.Small, Const.LIST_MAX_BODY_LINES, w)) {
+                rows += ListRow.Line(line, FontToken.Small)
+            }
+            rows += ListRow.Sep
+        }
+        rows += ListRow.Bullet
+        return rows
     }
 
-    private fun bodyWidth(): Int =
-        Const.SCREEN_W - 2 * Const.MARGIN_X - Const.SCROLLBAR_GAP - Const.SCROLLBAR_W
+    /** Logical height of one row — MUST mirror the layout the solver produces for [HudScreens.notifList]. */
+    private fun rowHeight(r: ListRow): Int = when (r) {
+        ListRow.Sep -> Const.SEP_H
+        is ListRow.Header -> maxOf(Const.LIST_ICON_SIZE, measurer.lineHeight(FontToken.Small))
+        is ListRow.Line -> measurer.lineHeight(r.font)
+        ListRow.Bullet -> Const.BULLET_SIZE
+    }
+
+    /** Total list height = Σ row heights + the uniform inter-row gap (matches the scroll column). */
+    private fun totalContentHeight(rows: List<ListRow>): Int {
+        if (rows.isEmpty()) return 0
+        return rows.sumOf { rowHeight(it) } + Const.LIST_GAP * (rows.size - 1)
+    }
+
+    /** Clip-viewport height for the list (screen minus margins minus the kept status bar + its gap). */
+    private fun pageContentHeight(): Int =
+        Const.SCREEN_H - Const.TOP_MARGIN - Const.BOTTOM_MARGIN -
+            measurer.lineHeight(FontToken.Small) - Const.STATUS_CONTENT_GAP
+
+    fun notifListPageCount(items: List<NotifItem>): Int {
+        val total = totalContentHeight(buildListRows(items))
+        val page = pageContentHeight().coerceAtLeast(1)
+        return ((total + page - 1) / page).coerceAtLeast(1)
+    }
 
     private fun present(root: Element) {
         var cmds = solver.solve(root, LSize(Const.SCREEN_W, Const.SCREEN_H))

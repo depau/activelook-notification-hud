@@ -14,10 +14,17 @@ data class NotifItem(
     val title: String,
     val body: String,
     val postTime: Long,
+    /** 48px splash icon (AppPresent). */
     val iconBitmap: Bitmap? = null,
+    /** [Const.LIST_ICON_SIZE]px header icon for the notification list; null if unavailable. */
+    val listIconBitmap: Bitmap? = null,
 ) {
     val bodyFirstLine: String
         get() = body.lineSequence().firstOrNull { it.isNotBlank() }?.trim() ?: ""
+
+    /** Body with CR/CRLF normalized to LF, for consistent wrapping. */
+    val sanitizedBody: String
+        get() = body.replace("\r\n", "\n").replace('\r', '\n')
 }
 
 /** What the glasses are currently showing. */
@@ -28,9 +35,12 @@ sealed interface DisplayState {
     /** App icon + app name splash. */
     data class AppPresent(val notif: NotifItem) : DisplayState
 
-    /** Title + first body line. */
+    /** Title + first body lines (glance). */
     data class Peek(val notif: NotifItem) : DisplayState
 
-    /** Full, scrollable body. [offset] is a line index into the wrapped body. */
-    data class Open(val notif: NotifItem, val offset: Int) : DisplayState
+    /** Paginated live list of all currently-posted notifications. [page] is 0-based. */
+    data class NotifList(val page: Int) : DisplayState
+
+    /** Glance-like "No notifications" message (gesture with nothing posted). */
+    data object NoNotifs : DisplayState
 }

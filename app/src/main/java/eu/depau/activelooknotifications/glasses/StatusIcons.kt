@@ -46,6 +46,24 @@ class StatusIcons {
         }
     }
 
+    /** A solid filled circle (end-of-list bullet), [px] in diameter, mono. Cached. */
+    fun bullet(px: Int): Bitmap {
+        val ck = "bullet@$px"
+        cache.get(ck)?.let { return it }
+        val out = createBitmap(px, px)
+        val canvas = Canvas(out)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = ON }
+        canvas.drawCircle(px / 2f, px / 2f, px / 2f, paint)
+        val pixels = IntArray(px * px)
+        out.getPixels(pixels, 0, px, 0, 0, px, px)
+        for (i in pixels.indices) {
+            pixels[i] = if (Color.alpha(pixels[i]) >= ALPHA_THRESHOLD) ON else OFF
+        }
+        out.setPixels(pixels, 0, px, 0, 0, px, px)
+        cache.put(ck, out)
+        return out
+    }
+
     private inline fun get(key: String, px: Int, vector: () -> ImageVector): Bitmap {
         val ck = "$key@$px"
         cache.get(ck)?.let { return it }

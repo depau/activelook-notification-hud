@@ -23,6 +23,14 @@ object NotifRepository {
     var lastNotif: NotifItem? = null
         private set
 
+    /**
+     * Returns a filtered, newest→oldest, capped snapshot of all currently-posted notifications.
+     * Set by [NotificationListener] while it's connected (cleared otherwise), so a gesture can read
+     * the live list from the system. Null when no listener is connected.
+     */
+    @Volatile
+    var activeProvider: (() -> List<NotifItem>)? = null
+
     fun publish(item: NotifItem) {
         lastNotif = item
         _incoming.tryEmit(item)

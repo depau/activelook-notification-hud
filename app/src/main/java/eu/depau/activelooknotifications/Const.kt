@@ -63,6 +63,20 @@ object Const {
     const val STATUS_PCT_GAP = 5      // between a battery icon/widget and its "%" text
     const val STATUS_LABEL_GAP = 4    // between the "5G"/"LTE" label and the cellular signal icon
 
+    // --- Peek (glance) line caps ---
+    const val PEEK_TITLE_LINES = 2    // max title rows in the glance
+    const val PEEK_BODY_LINES = 3     // max body rows in the glance
+
+    // --- Notification list (gesture-opened) ---
+    const val LIST_MAX_NOTIFS = 50     // safety cap on how many notifications are listed
+    const val LIST_MAX_TITLE_LINES = 2 // per-notification title wrap cap (Medium font)
+    const val LIST_MAX_BODY_LINES = 10 // per-notification body wrap cap (anti-DoS)
+    const val LIST_ICON_SIZE = 24      // header small-icon px (≈ Small font height; NOT ICON_SIZE)
+    const val SEP_H = 2                // full-width separator-line thickness
+    const val BULLET_SIZE = 10         // end-of-list filled-circle diameter (px)
+    const val LIST_GAP = 6             // uniform vertical gap between every scroll-column row
+    const val LIST_HEADER_GAP = 6      // gap between the icon and the app-name/time in the header
+
     /** Extra pixels added to a font's height to get its line pitch. */
     const val LINE_GAP = 4
 

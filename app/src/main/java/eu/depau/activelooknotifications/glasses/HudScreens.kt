@@ -85,8 +85,8 @@ object HudScreens {
 
     fun peek(
         status: StatusBarModel,
-        title: List<Inline>,
-        body: List<Inline>,
+        title: List<List<Inline>>,
+        body: List<List<Inline>>,
         drawGlyphs: Boolean,
         yOffset: Int
     ): Element =
@@ -101,22 +101,17 @@ object HudScreens {
                 width = Fill, height = Fill, main = MainAlign.Center, cross = CrossAlign.Center,
                 gap = Const.TITLE_BODY_GAP, clip = true, translateY = yOffset,
             ) {
-                inlineLine(title, FontToken.Medium, TextAlign.Center, drawGlyphs)
-                if (body.isNotEmpty()) inlineLine(
-                    body,
-                    FontToken.Small,
-                    TextAlign.Center,
-                    drawGlyphs
-                )
+                for (line in title) inlineLine(line, FontToken.Medium, TextAlign.Center, drawGlyphs)
+                for (line in body) inlineLine(line, FontToken.Small, TextAlign.Center, drawGlyphs)
             }
         }
 
-    fun open(
+    /** Gesture-opened, paginated list of currently-posted notifications. */
+    fun notifList(
         status: StatusBarModel,
-        title: List<Inline>,
-        bodyLines: List<List<Inline>>,
+        rows: List<ListRow>,
+        bullet: Bitmap,
         scrollPx: Int,
-        showScrollbar: Boolean,
         drawGlyphs: Boolean,
         yOffset: Int,
     ): Element = column(
@@ -126,30 +121,43 @@ object HudScreens {
         gap = Const.STATUS_CONTENT_GAP
     ) {
         statusBar(status)
-        inlineLine(title, FontToken.Medium, TextAlign.Center, drawGlyphs)
-        row(width = Fill, height = Fill, gap = Const.SCROLLBAR_GAP) {
-            column(
-                width = Fill, height = Fill, clip = true, scrollY = scrollPx,
-                gap = Const.LINE_GAP, translateY = yOffset,
-            ) {
-                for (line in bodyLines) inlineLine(
-                    line,
-                    FontToken.Small,
-                    TextAlign.Start,
-                    drawGlyphs
-                )
-            }
-            if (showScrollbar) {
-                box(
-                    width = Fixed(Const.SCROLLBAR_W),
-                    height = Fill,
-                    fill = Const.COLOR_WHITE.toInt()
-                )
+        column(
+            width = Fill, height = Fill, clip = true, scrollY = scrollPx,
+            gap = Const.LIST_GAP, translateY = yOffset,
+        ) {
+            for (r in rows) when (r) {
+                ListRow.Sep -> separator()
+                is ListRow.Header -> headerRow(r.icon, r.appName, r.time, drawGlyphs)
+                is ListRow.Line -> inlineLine(r.runs, r.font, TextAlign.Start, drawGlyphs)
+                ListRow.Bullet -> centeredBullet(bullet, drawGlyphs)
             }
         }
     }
 
     // --- helpers ---
+
+    private fun ChildrenScope.separator() {
+        box(width = Fill, height = Fixed(Const.SEP_H), fill = Const.COLOR_WHITE.toInt(), borderThick = 0)
+    }
+
+    private fun ChildrenScope.headerRow(icon: Bitmap?, appName: List<Inline>, time: String, drawGlyphs: Boolean) {
+        row(width = Fill, gap = Const.LIST_HEADER_GAP, cross = CrossAlign.Center) {
+            if (icon != null && drawGlyphs) image(key = "listicon", payload = icon, w = Const.LIST_ICON_SIZE, h = Const.LIST_ICON_SIZE)
+            else spacer(width = Fixed(Const.LIST_ICON_SIZE), height = Fixed(Const.LIST_ICON_SIZE))
+            // App name takes the leftover width (Fill) so the time stays pinned at the right.
+            row(width = Fill, cross = CrossAlign.Center) {
+                inlineLine(appName, FontToken.Small, TextAlign.Start, drawGlyphs)
+            }
+            text(time, font = FontToken.Small, align = TextAlign.End)
+        }
+    }
+
+    private fun ChildrenScope.centeredBullet(bullet: Bitmap, drawGlyphs: Boolean) {
+        row(width = Fill, height = Fixed(Const.BULLET_SIZE), main = MainAlign.Center, cross = CrossAlign.Center) {
+            if (drawGlyphs) image(key = "bullet", payload = bullet, w = Const.BULLET_SIZE, h = Const.BULLET_SIZE)
+            else spacer(width = Fixed(Const.BULLET_SIZE), height = Fixed(Const.BULLET_SIZE))
+        }
+    }
 
     /** Lay out one shaped line as a row of native text + inline glyph images. */
     private fun ChildrenScope.inlineLine(

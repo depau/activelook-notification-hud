@@ -3,6 +3,7 @@ package eu.depau.activelooknotifications.display
 import android.os.SystemClock
 import eu.depau.activelooknotifications.Const
 import eu.depau.activelooknotifications.glasses.GlassesRenderer
+import eu.depau.activelooknotifications.notif.NotifRepository
 import eu.depau.activelooknotifications.phone.SignalInfo
 import eu.depau.activelooknotifications.phone.StatusInfo
 import kotlinx.coroutines.CoroutineScope
@@ -23,11 +24,11 @@ import java.util.Locale
  * reads [Event]s off a channel, so timers, gestures, status updates and incoming notifications are
  * serialized — they never mutate state from multiple threads.
  *
- * State graph (newest-wins; tap advances, tap-at-end closes):
+ * State graph (newest-wins; a gesture opens the live notification list and pages through it):
  *   Idle ──notif──▶ AppPresent ──1.5s──▶ Peek ──5s──▶ Idle
- *   Idle ──tap(lastNotif)──▶ Open(0)
- *   AppPresent/Peek ──tap──▶ Open(0)
- *   Open ──tap(more)──▶ Open(+page)   Open ──tap(end)──▶ Idle   Open ──10s──▶ Idle
+ *   Idle/AppPresent/Peek ──gesture──▶ NotifList(0)   (or NoNotifs if nothing is posted)
+ *   NotifList(p) ──gesture(more)──▶ NotifList(p+1)   NotifList(last) ──gesture──▶ Idle   NotifList ──10s──▶ Idle
+ *   NoNotifs ──gesture/10s──▶ Idle
  *   any ──new notif──▶ AppPresent
  */
 class DisplayController(
@@ -50,8 +51,8 @@ class DisplayController(
     private var timerJob: Job? = null
     private var timerToken = 0L
 
-    private var lastNotif: NotifItem? = null
-    private var openLines: List<List<eu.depau.activelooknotifications.glasses.Inline>> = emptyList()
+    private var listItems: List<NotifItem> = emptyList()
+    private var listPageCount = 0
     private var lastGestureAt = 0L
 
     // Status pieces gathered from the phone/glasses; time is computed fresh at render.
@@ -117,11 +118,7 @@ class DisplayController(
     private suspend fun runLoop() {
         for (event in events) {
             when (event) {
-                is Event.NewNotif -> {
-                    lastNotif = event.item
-                    openLines = emptyList()
-                    transitionTo(DisplayState.AppPresent(event.item))
-                }
+                is Event.NewNotif -> transitionTo(DisplayState.AppPresent(event.item))
 
                 Event.Gesture -> handleGesture()
 
@@ -152,31 +149,34 @@ class DisplayController(
         lastGestureAt = now
 
         when (val s = _state.value) {
-            DisplayState.Idle -> lastNotif?.let { openNotif(it, 0) }
-            is DisplayState.AppPresent -> openNotif(s.notif, 0)
-            is DisplayState.Peek -> openNotif(s.notif, 0)
-            is DisplayState.Open -> {
-                val page = renderer.visibleBodyLines()
-                val nextOffset = s.offset + page
-                if (nextOffset >= openLines.size) {
-                    transitionTo(DisplayState.Idle)
-                } else {
-                    transitionTo(DisplayState.Open(s.notif, nextOffset))
-                }
+            DisplayState.Idle, is DisplayState.AppPresent, is DisplayState.Peek -> openList()
+            is DisplayState.NotifList -> {
+                val next = s.page + 1
+                if (next >= listPageCount) transitionTo(DisplayState.Idle)
+                else transitionTo(DisplayState.NotifList(next))
             }
+            DisplayState.NoNotifs -> transitionTo(DisplayState.Idle)
         }
     }
 
-    private suspend fun openNotif(notif: NotifItem, offset: Int) {
-        openLines = renderer.wrapBody(sanitizeBody(notif.body))
-        transitionTo(DisplayState.Open(notif, offset))
+    /** Read the live list of currently-posted notifications and open it (or show "No notifications"). */
+    private suspend fun openList() {
+        val items = NotifRepository.activeProvider?.invoke().orEmpty()
+        if (items.isEmpty()) {
+            transitionTo(DisplayState.NoNotifs)
+            return
+        }
+        listItems = items
+        listPageCount = renderer.notifListPageCount(items).coerceAtLeast(1)
+        transitionTo(DisplayState.NotifList(0))
     }
 
     private fun onTimeout() {
         when (val s = _state.value) {
             is DisplayState.AppPresent -> scope.launch { transitionTo(DisplayState.Peek(s.notif)) }
             is DisplayState.Peek -> scope.launch { transitionTo(DisplayState.Idle) }
-            is DisplayState.Open -> scope.launch { transitionTo(DisplayState.Idle) }
+            is DisplayState.NotifList -> scope.launch { transitionTo(DisplayState.Idle) }
+            DisplayState.NoNotifs -> scope.launch { transitionTo(DisplayState.Idle) }
             DisplayState.Idle -> {}
         }
     }
@@ -191,7 +191,8 @@ class DisplayController(
         val timeout = when (state) {
             is DisplayState.AppPresent -> appNameDurationMs
             is DisplayState.Peek -> peekTimeoutMs
-            is DisplayState.Open -> openTimeoutMs
+            is DisplayState.NotifList -> openTimeoutMs
+            DisplayState.NoNotifs -> openTimeoutMs
             DisplayState.Idle -> null
         }
         timerJob = timeout?.let {
@@ -220,7 +221,8 @@ class DisplayController(
                 DisplayState.Idle -> renderer.renderIdle(status, offset)
                 is DisplayState.AppPresent -> renderer.renderAppPresent(state.notif, state.notif.iconBitmap, status, offset)
                 is DisplayState.Peek -> renderer.renderPeek(state.notif, status, offset)
-                is DisplayState.Open -> renderer.renderOpen(state.notif, openLines, state.offset, status, offset)
+                is DisplayState.NotifList -> renderer.renderNotifList(listItems, state.page, status, offset)
+                DisplayState.NoNotifs -> renderer.renderNoNotifs(status, offset)
             }
             if (f < frames) delay(Const.ANIM_FRAME_MS)
         }
@@ -236,7 +238,4 @@ class DisplayController(
             signal = signal,
         )
     }
-
-    private fun sanitizeBody(body: String): String =
-        body.replace("\r\n", "\n").replace('\r', '\n')
 }

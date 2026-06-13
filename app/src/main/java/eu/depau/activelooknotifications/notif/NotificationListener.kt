@@ -55,6 +55,16 @@ class NotificationListener : NotificationListenerService() {
         super.onDestroy()
     }
 
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        NotifRepository.activeProvider = { snapshotActive() }
+    }
+
+    override fun onListenerDisconnected() {
+        NotifRepository.activeProvider = null
+        super.onListenerDisconnected()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         try {
             handle(sbn)
@@ -64,53 +74,83 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun handle(sbn: StatusBarNotification) {
-        val pkg = sbn.packageName ?: return
-        if (pkg == packageName) return
-        // Allowlist: show only listed apps. Denylist: show everything except listed apps.
-        val listed = pkg in allowed
-        if (if (denylistMode) listed else !listed) return
-
-        val notification = sbn.notification ?: return
-        val flags = notification.flags
-        if (flags and Notification.FLAG_GROUP_SUMMARY != 0) return
-        if (!Const.SHOW_ONGOING && flags and Notification.FLAG_ONGOING_EVENT != 0) return
-
-        val extras = notification.extras
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
-        val body = extractBody(notification).trim()
-        if (title.isEmpty() && body.isEmpty()) return
+        val item = mapToItem(sbn, Const.ICON_SIZE) ?: return
 
         // Dedup: ignore an identical re-post of the same key within the window.
-        val contentHash = (31 * title.hashCode()) + body.hashCode()
+        val contentHash = (31 * item.title.hashCode()) + item.body.hashCode()
         val now = System.currentTimeMillis()
-        val previous = recent[sbn.key]
+        val previous = recent[item.key]
         if (previous != null && previous.first == contentHash && now - previous.second < Const.DEDUP_WINDOW_MS) {
             return
         }
-        recent[sbn.key] = contentHash to now
+        recent[item.key] = contentHash to now
         pruneRecent(now)
 
+        NotifRepository.publish(item)
+    }
+
+    /**
+     * Live snapshot of every currently-posted notification, mapped + filtered like [handle] (minus
+     * dedup, which is point-in-time meaningless), newest→oldest, capped. Returns empty if the
+     * listener isn't connected ([activeNotifications] throws/null before connection).
+     */
+    private fun snapshotActive(): List<NotifItem> {
+        val active = try {
+            activeNotifications
+        } catch (e: Exception) {
+            return emptyList()
+        } ?: return emptyList()
+        return active.asSequence()
+            .mapNotNull { runCatching { mapToItem(it, Const.LIST_ICON_SIZE) }.getOrNull() }
+            .sortedByDescending { it.postTime }
+            .take(Const.LIST_MAX_NOTIFS)
+            .toList()
+    }
+
+    /**
+     * Map a [StatusBarNotification] to a [NotifItem], applying the allow/deny + group-summary/ongoing
+     * filters and title/body/icon extraction shared by the live (peek) and snapshot (list) paths.
+     * [iconSize] selects which rasterized icon is populated ([Const.ICON_SIZE] splash vs
+     * [Const.LIST_ICON_SIZE] header). Returns null if the notification should be dropped.
+     */
+    private fun mapToItem(sbn: StatusBarNotification, iconSize: Int): NotifItem? {
+        val pkg = sbn.packageName ?: return null
+        if (pkg == packageName) return null
+        // Allowlist: show only listed apps. Denylist: show everything except listed apps.
+        val listed = pkg in allowed
+        if (if (denylistMode) listed else !listed) return null
+
+        val notification = sbn.notification ?: return null
+        val flags = notification.flags
+        if (flags and Notification.FLAG_GROUP_SUMMARY != 0) return null
+        if (!Const.SHOW_ONGOING && flags and Notification.FLAG_ONGOING_EVENT != 0) return null
+
+        val title = notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+        val body = extractBody(notification).trim()
+        if (title.isEmpty() && body.isEmpty()) return null
+
         val appName = appLabel(pkg)
-        NotifRepository.publish(
-            NotifItem(
-                key = sbn.key ?: pkg,
-                packageName = pkg,
-                appName = appName,
-                title = title.ifEmpty { appName },
-                body = body,
-                postTime = sbn.postTime,
-                iconBitmap = resolveIcon(pkg, notification),
-            )
+        val icon = resolveIcon(pkg, notification, iconSize)
+        return NotifItem(
+            key = sbn.key ?: pkg,
+            packageName = pkg,
+            appName = appName,
+            title = title.ifEmpty { appName },
+            body = body,
+            postTime = sbn.postTime,
+            iconBitmap = if (iconSize == Const.ICON_SIZE) icon else null,
+            listIconBitmap = if (iconSize == Const.LIST_ICON_SIZE) icon else null,
         )
     }
 
     /**
      * Rasterise the notification's small icon (a monochrome silhouette designed for the status bar,
-     * ideal for the glasses) to a mono bitmap, falling back to the app's launcher icon. Cached per
-     * package since the small icon is stable per app.
+     * ideal for the glasses) to a mono bitmap at [size], falling back to the app's launcher icon.
+     * Cached per package+size (the splash uses 48px, the list header uses [Const.LIST_ICON_SIZE]).
      */
-    private fun resolveIcon(pkg: String, notification: Notification): Bitmap? {
-        iconCache[pkg]?.let { return it }
+    private fun resolveIcon(pkg: String, notification: Notification, size: Int): Bitmap? {
+        val ck = "$pkg@$size"
+        iconCache[ck]?.let { return it }
         val drawable = try {
             notification.smallIcon?.loadDrawable(this)
                 ?: packageManager.getApplicationIcon(pkg)
@@ -118,7 +158,7 @@ class NotificationListener : NotificationListenerService() {
             return null
         } ?: return null
         return try {
-            IconRasterizer.toMono(drawable).also { iconCache[pkg] = it }
+            IconRasterizer.toMono(drawable, size).also { iconCache[ck] = it }
         } catch (e: Exception) {
             null
         }
