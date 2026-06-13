@@ -6,6 +6,7 @@ import com.activelook.activelooksdk.Glasses
 import com.activelook.activelooksdk.types.FontInfo
 import eu.depau.activelooknotifications.Const
 import eu.depau.activelooknotifications.display.NotifItem
+import eu.depau.activelooknotifications.phone.NetworkType
 import eu.depau.activelooknotifications.phone.StatusInfo
 import eu.depau.glasslayout.activelook.ActiveLookSink
 import eu.depau.glasslayout.activelook.DeviceTransform
@@ -41,6 +42,7 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
     )
     private val measurer = GlassesTextMeasurer(metrics, fonts)
     private val shaper = InlineShaper(metrics::measureWidth, AndroidGlyphRasterizer(context))
+    private val statusIcons = StatusIcons()
     private val solver = LayoutSolver(measurer)
     private val sink = ActiveLookSink(
         differ = Differ(
@@ -83,24 +85,80 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
 
     fun renderIdle(status: StatusInfo, contentYOffset: Int = 0) {
         val dg = contentYOffset == 0
-        present(HudScreens.idle(status, shapeOne(status.time, FontToken.Large), shapeOne(status.date, FontToken.Small), dg, contentYOffset))
+        present(
+            HudScreens.idle(
+                statusModel(status, idle = true),
+                shapeOne(status.time, FontToken.Large),
+                shapeOne(status.date, FontToken.Small),
+                dg,
+                contentYOffset
+            )
+        )
     }
 
     fun renderAppPresent(notif: NotifItem, iconBitmap: Bitmap?, status: StatusInfo, contentYOffset: Int = 0) {
         val dg = contentYOffset == 0
-        present(HudScreens.appPresent(status, shapeOne(notif.appName, FontToken.Medium), if (showIcon) iconBitmap else null, dg, contentYOffset))
+        present(
+            HudScreens.appPresent(
+                statusModel(status, idle = false),
+                shapeOne(notif.appName, FontToken.Medium),
+                if (showIcon) iconBitmap else null,
+                dg,
+                contentYOffset
+            )
+        )
     }
 
     fun renderPeek(notif: NotifItem, status: StatusInfo, contentYOffset: Int = 0) {
         val dg = contentYOffset == 0
-        present(HudScreens.peek(status, shapeOne(notif.title, FontToken.Medium), shapeOne(notif.bodyFirstLine, FontToken.Small), dg, contentYOffset))
+        present(
+            HudScreens.peek(
+                statusModel(status, idle = false),
+                shapeOne(notif.title, FontToken.Medium),
+                shapeOne(notif.bodyFirstLine, FontToken.Small),
+                dg,
+                contentYOffset
+            )
+        )
     }
 
     fun renderOpen(notif: NotifItem, lines: List<List<Inline>>, offset: Int, status: StatusInfo, contentYOffset: Int = 0) {
         val scrollPx = offset * measurer.linePitch(FontToken.Small)
         val showScrollbar = Const.SHOW_SCROLLBAR && lines.size > visibleBodyLines()
         val dg = contentYOffset == 0
-        present(HudScreens.open(status, shapeOne(notif.title, FontToken.Medium), lines, scrollPx, showScrollbar, dg, contentYOffset))
+        present(
+            HudScreens.open(
+                statusModel(status, idle = false),
+                shapeOne(notif.title, FontToken.Medium),
+                lines,
+                scrollPx,
+                showScrollbar,
+                dg,
+                contentYOffset
+            )
+        )
+    }
+
+    /** Resolve the phone/glasses [StatusInfo] into icon bitmaps + a primitive battery for [HudScreens]. */
+    private fun statusModel(status: StatusInfo, idle: Boolean): StatusBarModel {
+        val px = fontPx(FontToken.Small)
+        val glasses =
+            status.glassesBattery?.let { BatteryViz("bt", statusIcons.bluetooth(px), "$it%") }
+        val phone = BatteryViz("phone", statusIcons.smartphone(px), "${status.phoneBattery}%")
+        val right: StatusRight = if (!idle) {
+            StatusRight.Time(status.time)
+        } else {
+            val sig = status.signal
+            when {
+                sig == null || sig.networkType == NetworkType.NONE -> StatusRight.None
+                sig.networkType == NetworkType.WIFI ->
+                    StatusRight.Wifi("wifi${sig.bars}", statusIcons.wifi(sig.bars, px))
+
+                else ->
+                    StatusRight.Cellular(sig.bars, sig.networkType.label)
+            }
+        }
+        return StatusBarModel(glasses, phone, right, px)
     }
 
     /** Word-wrap a notification body to the open-view body width, shaped into inline runs. */

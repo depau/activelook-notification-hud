@@ -47,13 +47,21 @@ object Const {
     const val MARGIN_X = 24
 
     // --- Logical layout (engine coords: origin top-left, x→right, y→down; flipped to device in the sink) ---
-    const val TOP_MARGIN = 4          // logical inset from the top edge (status bar row)
-    const val BOTTOM_MARGIN = 4
+    // The top/bottom edges of the reflector are not reliably visible (like the left/right), so keep a
+    // generous vertical safe margin too — not just the horizontal MARGIN_X.
+    const val TOP_MARGIN = 14         // logical inset from the top edge (status bar row)
+    const val BOTTOM_MARGIN = 14
     const val STATUS_CONTENT_GAP = 6  // gap below the status bar before content
     const val ICON_NAME_GAP = 8       // app-present: gap between icon and name
     const val SCROLLBAR_GAP = 4       // open: gap between body and scrollbar
     const val SCROLLBAR_W = 3         // open: scrollbar thickness
     const val MAX_LINE_W = 250        // default body wrap width
+
+    // Status bar icon spacing.
+    const val STATUS_ITEM_GAP =
+        10    // between the glasses-battery group and the phone-battery group
+    const val STATUS_PCT_GAP = 5      // between a battery icon/widget and its "%" text
+    const val STATUS_LABEL_GAP = 4    // between the "5G"/"LTE" label and the cellular signal icon
 
     /** Extra pixels added to a font's height to get its line pitch. */
     const val LINE_GAP = 4

@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
 import android.telephony.PhoneStateListener
@@ -35,6 +36,8 @@ class PhoneStatusProvider(
 ) {
     private var battery: Int = 0
     @Volatile private var bars: Int = 0
+    @Volatile
+    private var wifiBars: Int = 4 // WiFi RSSI level 0..4 (full until we hear otherwise)
     @Volatile private var overrideType: Int = 0 // TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE
     @Volatile private var signal: SignalInfo? = null
     private var registered = false
@@ -48,7 +51,11 @@ class PhoneStatusProvider(
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) = recompute()
         override fun onLost(network: Network) = recompute()
-        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) = recompute()
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) wifiBars =
+                wifiLevelFrom(caps)
+            recompute()
+        }
     }
 
     private val batteryReceiver = object : BroadcastReceiver() {
@@ -145,11 +152,23 @@ class PhoneStatusProvider(
 
     private fun recompute() {
         signal = when {
-            isWifiActive() -> SignalInfo(NetworkType.WIFI, 0) // WiFi needs no phone-state permission
+            isWifiActive() -> SignalInfo(
+                NetworkType.WIFI,
+                wifiBars.coerceIn(0, 4)
+            ) // no phone-state perm needed
             hasPhoneStatePermission() -> SignalInfo(currentNetworkType(), bars.coerceIn(0, 4))
             else -> null
         }
         emit()
+    }
+
+    /** Map a WiFi network's RSSI (API 29+) to 0..4 bars; full when unknown or pre-Q. */
+    @Suppress("DEPRECATION")
+    private fun wifiLevelFrom(caps: NetworkCapabilities): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 4
+        val rssi = caps.signalStrength
+        if (rssi == NetworkCapabilities.SIGNAL_STRENGTH_UNSPECIFIED) return 4
+        return WifiManager.calculateSignalLevel(rssi, 5).coerceIn(0, 4)
     }
 
     private fun emit() = onUpdate(battery, signal)
