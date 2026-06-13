@@ -1,11 +1,17 @@
 package eu.depau.activelooknotifications.service
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -119,6 +125,8 @@ class NotifGlassService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var wakeLock: PowerManager.WakeLock? = null
+    private var bluetoothAdapter: BluetoothAdapter? = null
+    private var priorityGatt: BluetoothGatt? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -127,6 +135,7 @@ class NotifGlassService : Service() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ALNotif::ServiceWakeLock")
             .apply { setReferenceCounted(false) }
+        bluetoothAdapter = (getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
 
         renderer = GlassesRenderer(GlassesTextMetrics(applicationContext), applicationContext)
         renderer.frameSink = { _lastFrame.value = it }
@@ -415,10 +424,11 @@ class NotifGlassService : Service() {
         _running.value = true
         _statusMessage.value = "Connected: ${glasses.name}"
 
-        // Persist for fast reconnect next time.
+        // Persist for fast reconnect next time, and raise the link's connection priority.
         runCatching {
-            val blob = serializeGlasses(glasses.serializedGlasses)
-            scope.launch { settings.setSerializedGlasses(blob) }
+            val sg = glasses.serializedGlasses
+            if (Const.BOOST_CONNECTION_PRIORITY) boostConnectionPriority(sg.address)
+            scope.launch { settings.setSerializedGlasses(serializeGlasses(sg)) }
         }
 
         glasses.setOnDisconnected(Consumer { handleDisconnect(it) })
@@ -468,6 +478,7 @@ class NotifGlassService : Service() {
     private fun handleDisconnect(glasses: Glasses) {
         if (connectedGlasses === glasses) connectedGlasses = null
         renderer.glasses = null
+        releaseConnectionPriority()
         controller.stop()
         _glassesState.value = ConnectionState.DISCONNECTED
         _glassesInfo.value = "Not connected."
@@ -481,6 +492,7 @@ class NotifGlassService : Service() {
     }
 
     private fun teardownGlasses() {
+        releaseConnectionPriority()
         val g = connectedGlasses ?: return
         runCatching {
             g.unsubscribeToSensorInterfaceNotifications()
@@ -491,6 +503,34 @@ class NotifGlassService : Service() {
         }
         connectedGlasses = null
         renderer.glasses = null
+    }
+
+    /**
+     * Open a throwaway GATT to the same device only to request a fast connection interval. The
+     * interval is a property of the shared ACL link, so the SDK's own connection inherits it.
+     * Best-effort; failures are ignored. Requires BLUETOOTH_CONNECT on API 31+.
+     */
+    @SuppressLint("MissingPermission")
+    private fun boostConnectionPriority(address: String) {
+        if (priorityGatt != null) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !hasPermission(Manifest.permission.BLUETOOTH_CONNECT)) return
+        val device = runCatching { bluetoothAdapter?.getRemoteDevice(address) }.getOrNull() ?: return
+        runCatching {
+            priorityGatt = device.connectGatt(this, false, object : BluetoothGattCallback() {
+                override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
+                    if (newState == BluetoothProfile.STATE_CONNECTED) {
+                        runCatching { g.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH) }
+                        Log.d(TAG, "Requested high BLE connection priority")
+                    }
+                }
+            })
+        }.onFailure { Log.w(TAG, "boostConnectionPriority failed", it) }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun releaseConnectionPriority() {
+        runCatching { priorityGatt?.close() }
+        priorityGatt = null
     }
 
     private fun scheduleReconnect() {

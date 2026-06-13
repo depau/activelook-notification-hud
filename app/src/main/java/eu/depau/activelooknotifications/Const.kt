@@ -106,6 +106,14 @@ object Const {
     const val SHOW_STATUS_SEPARATOR = false
     const val SHOW_SCROLLBAR = true
 
+    /**
+     * Open a throwaway 2nd GATT to the glasses purely to request CONNECTION_PRIORITY_HIGH, raising
+     * the shared ACL link's connection interval (~50ms→~15ms). Speeds up redraws and avoids the
+     * SDK's "Could not write rx" retry storm / dropped batches — especially vs an Android-phone
+     * emulator (slow peripheral interval), but also faster image/config uploads on real glasses.
+     */
+    const val BOOST_CONNECTION_PRIORITY = true
+
     // --- Layout-engine partial-redraw knobs ---
     const val MAX_DIRTY_RECTS = 4
     const val MERGE_SLOP = 8
