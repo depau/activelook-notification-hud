@@ -2,20 +2,8 @@ package eu.depau.glasslayout.core.text
 
 import java.text.Normalizer
 
-/**
- * A future-facing seam: a piece of text shaped into a run of segments. Today only [Text] is
- * produced; emoji/special glyphs will later become [Glyph] segments rendered as overlaid images.
- */
-sealed interface Segment {
-    /** ASCII-renderable text drawn with the ROM font. */
-    data class Text(val text: String) : Segment
-
-    /** A glyph the ROM font can't render (emoji/CJK) — to be drawn as an image later. */
-    data class Glyph(val key: String) : Segment
-}
-
 interface TextShaper {
-    /** Tier 1: render everything as one ASCII-safe string (no segment splitting yet). */
+    /** Render everything as one ASCII-safe string (Latin transliteration; non-renderable → space). */
     fun toAscii(text: String): String
 }
 

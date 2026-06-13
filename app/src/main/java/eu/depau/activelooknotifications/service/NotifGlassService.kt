@@ -128,7 +128,7 @@ class NotifGlassService : Service() {
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ALNotif::ServiceWakeLock")
             .apply { setReferenceCounted(false) }
 
-        renderer = GlassesRenderer(GlassesTextMetrics(applicationContext))
+        renderer = GlassesRenderer(GlassesTextMetrics(applicationContext), applicationContext)
         renderer.frameSink = { _lastFrame.value = it }
         controller = DisplayController(renderer, scope)
         settings = SettingsRepository(applicationContext)
@@ -139,6 +139,19 @@ class NotifGlassService : Service() {
         initSdk()
         observeSettings()
         observeNotifications()
+        maybeAutoConnect()
+    }
+
+    /** Connect on startup if the user enabled auto-connect and a device was previously paired. */
+    private fun maybeAutoConnect() {
+        scope.launch {
+            val auto = runCatching { settings.autoConnect.first() }.getOrDefault(true)
+            val hasSaved = runCatching { settings.serializedGlasses.first().isNotEmpty() }.getOrDefault(false)
+            if (auto && hasSaved && !shouldBeConnected) {
+                // Run on the main thread (BLE/FGS calls expect it).
+                handler.post { if (!shouldBeConnected) connectGlasses() }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

@@ -51,7 +51,7 @@ class DisplayController(
     private var timerToken = 0L
 
     private var lastNotif: NotifItem? = null
-    private var openLines: List<String> = emptyList()
+    private var openLines: List<List<eu.depau.activelooknotifications.glasses.Inline>> = emptyList()
     private var lastGestureAt = 0L
 
     // Status pieces gathered from the phone/glasses; time is computed fresh at render.

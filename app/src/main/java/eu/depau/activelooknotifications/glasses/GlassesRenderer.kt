@@ -1,5 +1,6 @@
 package eu.depau.activelooknotifications.glasses
 
+import android.content.Context
 import android.graphics.Bitmap
 import com.activelook.activelooksdk.Glasses
 import com.activelook.activelooksdk.types.FontInfo
@@ -17,7 +18,6 @@ import eu.depau.glasslayout.core.layout.LayoutSolver
 import eu.depau.glasslayout.core.model.Element
 import eu.depau.glasslayout.core.model.FontToken
 import eu.depau.glasslayout.core.render.RenderCommand
-import eu.depau.glasslayout.core.text.AsciiTextShaper
 
 /**
  * Façade over the glasslayout engine. Keeps the imperative API the [eu.depau.activelooknotifications.display.DisplayController]
@@ -25,7 +25,7 @@ import eu.depau.glasslayout.core.text.AsciiTextShaper
  * `setBrightness`, `showIcon`, `debugBorder`, `glasses`, `clearScreen`). Internally each render builds
  * a core [Element] tree, solves it, and presents it through the partial-redraw [ActiveLookSink].
  */
-class GlassesRenderer(metrics: GlassesTextMetrics) {
+class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
 
     private val fonts = FontResolver(
         desiredHeights = mapOf(
@@ -40,6 +40,7 @@ class GlassesRenderer(metrics: GlassesTextMetrics) {
         ),
     )
     private val measurer = GlassesTextMeasurer(metrics, fonts)
+    private val shaper = InlineShaper(metrics::measureWidth, AndroidGlyphRasterizer(context))
     private val solver = LayoutSolver(measurer)
     private val sink = ActiveLookSink(
         differ = Differ(
@@ -78,26 +79,38 @@ class GlassesRenderer(metrics: GlassesTextMetrics) {
     /** Full hardware clear + reset diff cache (used on disconnect). */
     fun clearScreen() = sink.blank()
 
-    // --- States (same signatures the controller already calls) ---
+    // --- States (same signatures the controller already calls; glyphs only on the settled frame) ---
 
-    fun renderIdle(status: StatusInfo, contentYOffset: Int = 0) =
-        present(HudScreens.idle(status, contentYOffset))
-
-    fun renderAppPresent(notif: NotifItem, iconBitmap: Bitmap?, status: StatusInfo, contentYOffset: Int = 0) =
-        present(HudScreens.appPresent(notif, if (showIcon) iconBitmap else null, status, contentYOffset))
-
-    fun renderPeek(notif: NotifItem, status: StatusInfo, contentYOffset: Int = 0) =
-        present(HudScreens.peek(notif, status, contentYOffset))
-
-    fun renderOpen(notif: NotifItem, lines: List<String>, offset: Int, status: StatusInfo, contentYOffset: Int = 0) {
-        val scrollPx = offset * measurer.linePitch(FontToken.Small)
-        val showScrollbar = Const.SHOW_SCROLLBAR && lines.size > visibleBodyLines()
-        present(HudScreens.open(notif, lines, scrollPx, showScrollbar, contentYOffset, status))
+    fun renderIdle(status: StatusInfo, contentYOffset: Int = 0) {
+        val dg = contentYOffset == 0
+        present(HudScreens.idle(status, shapeOne(status.time, FontToken.Large), shapeOne(status.date, FontToken.Small), dg, contentYOffset))
     }
 
-    /** Word-wrap a notification body to the open-view body width. */
-    fun wrapBody(text: String): List<String> =
-        measurer.wrap(AsciiTextShaper.toAscii(text), FontToken.Small, bodyWidth())
+    fun renderAppPresent(notif: NotifItem, iconBitmap: Bitmap?, status: StatusInfo, contentYOffset: Int = 0) {
+        val dg = contentYOffset == 0
+        present(HudScreens.appPresent(status, shapeOne(notif.appName, FontToken.Medium), if (showIcon) iconBitmap else null, dg, contentYOffset))
+    }
+
+    fun renderPeek(notif: NotifItem, status: StatusInfo, contentYOffset: Int = 0) {
+        val dg = contentYOffset == 0
+        present(HudScreens.peek(status, shapeOne(notif.title, FontToken.Medium), shapeOne(notif.bodyFirstLine, FontToken.Small), dg, contentYOffset))
+    }
+
+    fun renderOpen(notif: NotifItem, lines: List<List<Inline>>, offset: Int, status: StatusInfo, contentYOffset: Int = 0) {
+        val scrollPx = offset * measurer.linePitch(FontToken.Small)
+        val showScrollbar = Const.SHOW_SCROLLBAR && lines.size > visibleBodyLines()
+        val dg = contentYOffset == 0
+        present(HudScreens.open(status, shapeOne(notif.title, FontToken.Medium), lines, scrollPx, showScrollbar, dg, contentYOffset))
+    }
+
+    /** Word-wrap a notification body to the open-view body width, shaped into inline runs. */
+    fun wrapBody(text: String): List<List<Inline>> =
+        shaper.shape(text, fontPx(FontToken.Small), bodyWidth(), Int.MAX_VALUE)
+
+    private fun shapeOne(text: String, font: FontToken): List<Inline> =
+        shaper.shape(text, fontPx(font), Const.SCREEN_W - 2 * Const.MARGIN_X, 1).firstOrNull() ?: emptyList()
+
+    private fun fontPx(font: FontToken): Int = fonts.resolve(font).heightPx
 
     /** How many body lines fit below the title in the open view. */
     fun visibleBodyLines(): Int {
