@@ -169,4 +169,20 @@ class LayoutSolverTest {
         assertEquals(10, t.x)
         assertEquals(17, t.y)
     }
+
+    @Test fun suppressImagesInContainerHidesImagesButKeepsSpace() {
+        val root = column(width = Fixed(100), height = Fixed(100)) {
+            column(width = Fill, height = Fill, suppressImages = true) {
+                image(key = "img", payload = "payload", w = 20, h = 20)
+                text("AB", font = FontToken.Small)
+            }
+        }
+        val cmds = solver.solve(root, LSize(100, 100))
+        
+        val t = texts(cmds).single()
+        assertEquals(20, t.y)
+        
+        val images = cmds.filterIsInstance<RenderCommand.Image>()
+        assertTrue("images should be suppressed", images.isEmpty())
+    }
 }

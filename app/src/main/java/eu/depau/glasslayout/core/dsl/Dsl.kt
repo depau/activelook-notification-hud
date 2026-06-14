@@ -44,11 +44,12 @@ class ChildrenScope {
         scrollY: Int = 0,
         translateY: Int = 0,
         margin: BoxInsets = BoxInsets.NONE,
+        suppressImages: Boolean = false,
         content: ChildrenScope.() -> Unit = {},
     ) {
         children += buildContainer(
             Dir.Column, width, height, padding, spacing, main, cross,
-            background, border, clip, scrollY, translateY, margin, content,
+            background, border, clip, scrollY, translateY, margin, suppressImages, content,
         )
     }
 
@@ -65,11 +66,12 @@ class ChildrenScope {
         scrollY: Int = 0,
         translateY: Int = 0,
         margin: BoxInsets = BoxInsets.NONE,
+        suppressImages: Boolean = false,
         content: ChildrenScope.() -> Unit = {},
     ) {
         children += buildContainer(
             Dir.Row, width, height, padding, spacing, main, cross,
-            background, border, clip, scrollY, translateY, margin, content,
+            background, border, clip, scrollY, translateY, margin, suppressImages, content,
         )
     }
 
@@ -84,8 +86,9 @@ class ChildrenScope {
         background: Int? = null,
         border: Border? = null,
         margin: BoxInsets = BoxInsets.NONE,
+        suppressImages: Boolean = false,
         content: ChildrenScope.() -> Unit = {},
-    ) = column(width, height, padding, spacing, main, cross, background, border, margin = margin, content = content)
+    ) = column(width, height, padding, spacing, main, cross, background, border, margin = margin, suppressImages = suppressImages, content = content)
 
     fun text(
         text: String,
@@ -134,12 +137,13 @@ private fun buildContainer(
     dir: Dir, width: Sizing, height: Sizing, padding: BoxInsets, spacing: Int,
     main: MainAlign, cross: CrossAlign, background: Int?, border: Border?,
     clip: Boolean, scrollY: Int, translateY: Int, margin: BoxInsets,
+    suppressImages: Boolean,
     content: ChildrenScope.() -> Unit,
 ): Container {
     val scope = ChildrenScope().apply(content)
     return Container(
         width, height, dir, padding, spacing, main, cross,
-        background, border, clip, scrollY, translateY, scope.children, margin
+        background, border, clip, scrollY, translateY, scope.children, margin, suppressImages
     )
 }
 
@@ -157,10 +161,11 @@ fun column(
     scrollY: Int = 0,
     translateY: Int = 0,
     margin: BoxInsets = BoxInsets.NONE,
+    suppressImages: Boolean = false,
     content: ChildrenScope.() -> Unit = {},
 ): Element = buildContainer(
     Dir.Column, width, height, padding, spacing, main, cross,
-    background, border, clip, scrollY, translateY, margin, content,
+    background, border, clip, scrollY, translateY, margin, suppressImages, content,
 )
 
 fun row(
@@ -176,8 +181,9 @@ fun row(
     scrollY: Int = 0,
     translateY: Int = 0,
     margin: BoxInsets = BoxInsets.NONE,
+    suppressImages: Boolean = false,
     content: ChildrenScope.() -> Unit = {},
 ): Element = buildContainer(
     Dir.Row, width, height, padding, spacing, main, cross,
-    background, border, clip, scrollY, translateY, margin, content,
+    background, border, clip, scrollY, translateY, margin, suppressImages, content,
 )

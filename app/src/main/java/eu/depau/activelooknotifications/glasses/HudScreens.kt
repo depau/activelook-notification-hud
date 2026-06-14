@@ -31,7 +31,6 @@ object HudScreens {
         status: StatusBarModel,
         clock: List<Inline>,
         date: List<Inline>,
-        drawGlyphs: Boolean,
         yOffset: Int
     ): Element =
         column(
@@ -44,13 +43,13 @@ object HudScreens {
             column(
                 width = Fill, height = Fill, main = MainAlign.Start, cross = CrossAlign.Center,
                 spacing = Const.TITLE_BODY_GAP, clip = true, translateY = yOffset,
+                suppressImages = (yOffset != 0),
             ) {
-                inlineLine(clock, FontToken.Large, TextAlign.Center, drawGlyphs)
+                inlineLine(clock, FontToken.Large, TextAlign.Center)
                 if (date.isNotEmpty()) inlineLine(
                     date,
                     FontToken.Small,
-                    TextAlign.Center,
-                    drawGlyphs
+                    TextAlign.Center
                 )
             }
         }
@@ -59,7 +58,6 @@ object HudScreens {
         status: StatusBarModel,
         name: List<Inline>,
         icon: Bitmap?,
-        drawGlyphs: Boolean,
         yOffset: Int
     ): Element =
         column(
@@ -72,6 +70,7 @@ object HudScreens {
             column(
                 width = Fill, height = Fill, main = MainAlign.Center, cross = CrossAlign.Center,
                 spacing = Const.ICON_NAME_GAP, clip = true, translateY = yOffset,
+                suppressImages = (yOffset != 0),
             ) {
                 if (icon != null) image(
                     key = "icon",
@@ -79,7 +78,7 @@ object HudScreens {
                     w = Const.ICON_SIZE,
                     h = Const.ICON_SIZE
                 )
-                inlineLine(name, FontToken.Medium, TextAlign.Center, drawGlyphs)
+                inlineLine(name, FontToken.Medium, TextAlign.Center)
             }
         }
 
@@ -87,7 +86,6 @@ object HudScreens {
         status: StatusBarModel,
         title: List<List<Inline>>,
         body: List<List<Inline>>,
-        drawGlyphs: Boolean,
         yOffset: Int
     ): Element =
         column(
@@ -100,9 +98,10 @@ object HudScreens {
             column(
                 width = Fill, height = Fill, main = MainAlign.Center, cross = CrossAlign.Center,
                 spacing = Const.TITLE_BODY_GAP, clip = true, translateY = yOffset,
+                suppressImages = (yOffset != 0),
             ) {
-                for (line in title) inlineLine(line, FontToken.Medium, TextAlign.Center, drawGlyphs)
-                for (line in body) inlineLine(line, FontToken.Small, TextAlign.Center, drawGlyphs)
+                for (line in title) inlineLine(line, FontToken.Medium, TextAlign.Center)
+                for (line in body) inlineLine(line, FontToken.Small, TextAlign.Center)
             }
         }
 
@@ -112,7 +111,6 @@ object HudScreens {
         rows: List<ListRow>,
         bullet: Bitmap,
         scrollPx: Int,
-        drawGlyphs: Boolean,
         yOffset: Int,
     ): Element = column(
         width = Fixed(W),
@@ -124,12 +122,13 @@ object HudScreens {
         column(
             width = Fill, height = Fill, clip = true, scrollY = scrollPx,
             spacing = Const.LIST_GAP, translateY = yOffset,
+            suppressImages = (yOffset != 0),
         ) {
             for (r in rows) when (r) {
                 ListRow.Sep -> separator()
-                is ListRow.Header -> headerRow(r.icon, r.appName, r.time, drawGlyphs)
-                is ListRow.Line -> inlineLine(r.runs, r.font, TextAlign.Start, drawGlyphs)
-                ListRow.Bullet -> centeredBullet(bullet, drawGlyphs)
+                is ListRow.Header -> headerRow(r.icon, r.appName, r.time)
+                is ListRow.Line -> inlineLine(r.runs, r.font, TextAlign.Start)
+                ListRow.Bullet -> centeredBullet(bullet)
             }
         }
     }
@@ -140,22 +139,21 @@ object HudScreens {
         box(width = Fill, height = Fixed(Const.SEP_H), background = Const.COLOR_WHITE.toInt())
     }
 
-    private fun ChildrenScope.headerRow(icon: Bitmap?, appName: List<Inline>, time: String, drawGlyphs: Boolean) {
+    private fun ChildrenScope.headerRow(icon: Bitmap?, appName: List<Inline>, time: String) {
         row(width = Fill, spacing = Const.LIST_HEADER_GAP, cross = CrossAlign.Center) {
-            if (icon != null && drawGlyphs) image(key = "listicon", payload = icon, w = Const.LIST_ICON_SIZE, h = Const.LIST_ICON_SIZE)
+            if (icon != null) image(key = "listicon", payload = icon, w = Const.LIST_ICON_SIZE, h = Const.LIST_ICON_SIZE)
             else spacer(width = Fixed(Const.LIST_ICON_SIZE), height = Fixed(Const.LIST_ICON_SIZE))
             // App name takes the leftover width (Fill) so the time stays pinned at the right.
             row(width = Fill, cross = CrossAlign.Center) {
-                inlineLine(appName, FontToken.Small, TextAlign.Start, drawGlyphs)
+                inlineLine(appName, FontToken.Small, TextAlign.Start)
             }
             text(time, font = FontToken.Small, align = TextAlign.End)
         }
     }
 
-    private fun ChildrenScope.centeredBullet(bullet: Bitmap, drawGlyphs: Boolean) {
+    private fun ChildrenScope.centeredBullet(bullet: Bitmap) {
         row(width = Fill, height = Fixed(Const.BULLET_SIZE), main = MainAlign.Center, cross = CrossAlign.Center) {
-            if (drawGlyphs) image(key = "bullet", payload = bullet, w = Const.BULLET_SIZE, h = Const.BULLET_SIZE)
-            else spacer(width = Fixed(Const.BULLET_SIZE), height = Fixed(Const.BULLET_SIZE))
+            image(key = "bullet", payload = bullet, w = Const.BULLET_SIZE, h = Const.BULLET_SIZE)
         }
     }
 
@@ -163,8 +161,7 @@ object HudScreens {
     private fun ChildrenScope.inlineLine(
         line: List<Inline>,
         font: FontToken,
-        align: TextAlign,
-        drawGlyphs: Boolean
+        align: TextAlign
     ) {
         row(width = Fill, spacing = 0, main = mainAlignFor(align), cross = CrossAlign.Center) {
             for (run in line) {
@@ -180,13 +177,12 @@ object HudScreens {
                             )
 
                     is Inline.Glyph ->
-                        if (drawGlyphs) image(
+                        image(
                             key = run.key,
                             payload = run.payload,
                             w = run.widthPx,
                             h = run.heightPx
                         )
-                        else spacer(width = Fixed(run.widthPx), height = Fixed(run.heightPx))
                 }
             }
         }

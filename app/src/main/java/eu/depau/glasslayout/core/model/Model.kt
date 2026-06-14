@@ -71,6 +71,7 @@ data class Container(
     val translateY: Int = 0,
     val children: List<Element> = emptyList(),
     override val margin: BoxInsets = BoxInsets.NONE,
+    val suppressImages: Boolean = false,
 ) : Element
 
 data class TextEl(

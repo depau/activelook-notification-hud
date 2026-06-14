@@ -31,7 +31,7 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         node.h = resolveAxis(node.height, node.contentH, node.contentH, viewport.height, fill = viewport.height)
         growHeights(node)
         val out = ArrayList<RenderCommand>()
-        place(node, 0, 0, clip = null, out)
+        place(node, 0, 0, clip = null, suppressImages = false, out)
         return out
     }
 
@@ -253,7 +253,7 @@ class LayoutSolver(private val measurer: TextMeasurer) {
 
     // --- pass 5: position + emit ---
 
-    private fun place(n: Node, x: Int, y: Int, clip: LRect?, out: MutableList<RenderCommand>) {
+    private fun place(n: Node, x: Int, y: Int, clip: LRect?, suppressImages: Boolean, out: MutableList<RenderCommand>) {
         val el = n.el
         n.x = x
         n.y = y
@@ -277,7 +277,7 @@ class LayoutSolver(private val measurer: TextMeasurer) {
                 val contentY = drawY + borderThick + el.padding.top
                 val contentW = drawW - 2 * borderThick - el.padding.horizontal
                 val contentH = drawH - 2 * borderThick - el.padding.vertical
-                if (contentW > 0 && contentH > 0) {
+                if (contentW > 0 && contentH > 0 && el.draw && !suppressImages) {
                     emit(RenderCommand.Image(contentX, contentY, contentW, contentH, el.key, el.payload), clip, out)
                 }
             }
@@ -297,13 +297,15 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         val contentH = (drawH - 2 * borderThick - el.padding.vertical).coerceAtLeast(0)
         val gaps = gapTotal(el.spacing, n.children.size)
 
+        val childSuppress = suppressImages || el.suppressImages
+
         if (el.dir == Dir.Column) {
             val usedMain = n.children.sumOf { it.h } + gaps
             var cy = contentY + leading(el.main, contentH - usedMain)
             val between = el.spacing + betweenExtra(el.main, contentH - usedMain, n.children.size)
             for (c in n.children) {
                 val cx = contentX + crossOffset(el.cross, contentW - c.w)
-                place(c, cx, cy, childClip, out)
+                place(c, cx, cy, childClip, childSuppress, out)
                 cy += c.h + between
             }
         } else {
@@ -312,7 +314,7 @@ class LayoutSolver(private val measurer: TextMeasurer) {
             val between = el.spacing + betweenExtra(el.main, contentW - usedMain, n.children.size)
             for (c in n.children) {
                 val cy = contentY + crossOffset(el.cross, contentH - c.h)
-                place(c, cx, cy, childClip, out)
+                place(c, cx, cy, childClip, childSuppress, out)
                 cx += c.w + between
             }
         }

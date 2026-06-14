@@ -87,42 +87,36 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
     // --- States (same signatures the controller already calls; glyphs only on the settled frame) ---
 
     fun renderIdle(status: StatusInfo, contentYOffset: Int = 0) {
-        val dg = contentYOffset == 0
         present(
             HudScreens.idle(
                 statusModel(status, idle = true),
                 shapeOne(status.time, FontToken.Large),
                 shapeOne(status.date, FontToken.Small),
-                dg,
                 contentYOffset
             )
         )
     }
 
     fun renderAppPresent(notif: NotifItem, iconBitmap: Bitmap?, status: StatusInfo, contentYOffset: Int = 0) {
-        val dg = contentYOffset == 0
         present(
             HudScreens.appPresent(
                 statusModel(status, idle = false),
                 shapeOne(notif.appName, FontToken.Medium),
                 if (showIcon) iconBitmap else null,
-                dg,
                 contentYOffset
             )
         )
     }
 
     fun renderPeek(notif: NotifItem, status: StatusInfo, contentYOffset: Int = 0) {
-        val dg = contentYOffset == 0
         val w = Const.SCREEN_W - 2 * Const.MARGIN_X
         val title = shapeLines(notif.title, FontToken.Medium, Const.PEEK_TITLE_LINES, w)
         val body = shapeLines(notif.sanitizedBody, FontToken.Small, Const.PEEK_BODY_LINES, w)
-        present(HudScreens.peek(statusModel(status, idle = false), title, body, dg, contentYOffset))
+        present(HudScreens.peek(statusModel(status, idle = false), title, body, contentYOffset))
     }
 
     /** Render page [page] of the gesture-opened notification list. */
     fun renderNotifList(items: List<NotifItem>, page: Int, status: StatusInfo, contentYOffset: Int = 0) {
-        val dg = contentYOffset == 0
         val rows = buildListRows(items)
         val scrollPx = page * pageContentHeight()
         present(
@@ -131,7 +125,6 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
                 rows,
                 statusIcons.bullet(Const.BULLET_SIZE),
                 scrollPx,
-                dg,
                 contentYOffset,
             )
         )
@@ -139,9 +132,8 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
 
     /** Glance shown when a gesture fires with nothing posted. */
     fun renderNoNotifs(status: StatusInfo, contentYOffset: Int = 0) {
-        val dg = contentYOffset == 0
         val msg = shapeOne("No notifications", FontToken.Medium)
-        present(HudScreens.peek(statusModel(status, idle = false), listOf(msg), emptyList(), dg, contentYOffset))
+        present(HudScreens.peek(statusModel(status, idle = false), listOf(msg), emptyList(), contentYOffset))
     }
 
     /** Resolve the phone/glasses [StatusInfo] into icon bitmaps + a primitive battery for [HudScreens]. */
