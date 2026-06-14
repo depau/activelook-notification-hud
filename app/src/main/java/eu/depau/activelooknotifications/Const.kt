@@ -91,8 +91,9 @@ object Const {
     //   id0 h24, id1 h24, id2 h35, id3 h49.
     // The renderer reads the actual list on connect and picks the font whose height best matches
     // these desired sizes; the fallbacks below are used only if the list can't be read.
-    // NOTE: we intentionally do NOT call cfgSet("ALooK") — that config replaces some fonts with
-    // number-only glyph sets, which would stop letters (e.g. app/notification titles) rendering.
+    // NOTE: the service calls cfgSet("ALooK") on connect (NotifGlassService). This is necessary:
+    // other ActiveLook apps (e.g. Engo) overwrite the device config with their own fonts/images, so
+    // pinning our config on connect is what guarantees the fonts the renderer expects are present.
     const val DESIRED_SMALL_H = 24
     const val DESIRED_MEDIUM_H = 35
     const val DESIRED_LARGE_H = 49

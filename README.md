@@ -44,8 +44,9 @@ coroutine reading a `Channel` of events, so timers, gestures and notifications n
   **downward**. So the status row sits at y≈252 and body lines descend with *decreasing* y.
 - The 4 firmware ROM fonts are full-ASCII: id0 h24, id1 h24, id2 h35, id3 h49. The app reads the
   real list on connect (`fontList`) and picks the closest match per desired size, so it adapts to
-  whatever fonts the device reports. **`cfgSet` is intentionally not called** — that config swaps in
-  number-only fonts that would stop titles rendering.
+  whatever fonts the device reports. The app calls **`cfgSet("ALooK")` on connect** — this is
+  necessary because other ActiveLook apps (e.g. Engo) overwrite the device config with their own
+  fonts, so pinning our config guarantees the fonts the renderer expects are present.
 
 ## On-device fine-tuning
 
