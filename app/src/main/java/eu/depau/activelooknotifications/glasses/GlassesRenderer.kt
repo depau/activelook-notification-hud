@@ -136,7 +136,7 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
 
     /** Glance shown when a gesture fires with nothing posted. */
     fun renderNoNotifs(status: StatusInfo, contentYOffset: Int = 0) {
-        present(HudScreens.peek(statusModel(status, idle = false), "No notifications", "", contentYOffset))
+        present(HudScreens.peek(statusModel(status, idle = false), "All caught up", "No notifications", contentYOffset))
     }
 
     /** Resolve the phone/glasses [StatusInfo] into icon bitmaps + a primitive battery for [HudScreens]. */
