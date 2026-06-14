@@ -103,8 +103,10 @@ class ChildrenScope {
         padding: BoxInsets = BoxInsets.NONE,
         border: Border? = null,
         background: Int? = null,
+        lineHeight: Int? = null,
+        linePitch: Int? = null,
     ) {
-        children += TextEl(width, Fit, text, font, color, align, wrap, maxLines, ellipsize, margin, padding, border, background)
+        children += TextEl(width, Fit, text, font, color, align, wrap, maxLines, ellipsize, margin, padding, border, background, lineHeight, linePitch)
     }
 
     fun image(

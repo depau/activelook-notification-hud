@@ -88,6 +88,8 @@ data class TextEl(
     override val padding: BoxInsets = BoxInsets.NONE,
     override val border: Border? = null,
     override val background: Int? = null,
+    val lineHeight: Int? = null,
+    val linePitch: Int? = null,
 ) : Element
 
 data class ImageEl(

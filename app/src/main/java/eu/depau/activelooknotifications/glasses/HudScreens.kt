@@ -29,8 +29,8 @@ object HudScreens {
 
     fun idle(
         status: StatusBarModel,
-        clock: List<Inline>,
-        date: List<Inline>,
+        clock: String,
+        date: String,
         yOffset: Int
     ): Element =
         column(
@@ -45,18 +45,18 @@ object HudScreens {
                 spacing = Const.TITLE_BODY_GAP, clip = true, translateY = yOffset,
                 suppressImages = (yOffset != 0),
             ) {
-                inlineLine(clock, FontToken.Large, TextAlign.Center)
-                if (date.isNotEmpty()) inlineLine(
+                text(clock, font = FontToken.Large, align = TextAlign.Center)
+                if (date.isNotEmpty()) text(
                     date,
-                    FontToken.Small,
-                    TextAlign.Center
+                    font = FontToken.Small,
+                    align = TextAlign.Center
                 )
             }
         }
 
     fun appPresent(
         status: StatusBarModel,
-        name: List<Inline>,
+        name: String,
         icon: Bitmap?,
         yOffset: Int
     ): Element =
@@ -78,14 +78,14 @@ object HudScreens {
                     w = Const.ICON_SIZE,
                     h = Const.ICON_SIZE
                 )
-                inlineLine(name, FontToken.Medium, TextAlign.Center)
+                text(name, font = FontToken.Medium, align = TextAlign.Center)
             }
         }
 
     fun peek(
         status: StatusBarModel,
-        title: List<List<Inline>>,
-        body: List<List<Inline>>,
+        title: String,
+        body: String,
         yOffset: Int
     ): Element =
         column(
@@ -100,8 +100,8 @@ object HudScreens {
                 spacing = Const.TITLE_BODY_GAP, clip = true, translateY = yOffset,
                 suppressImages = (yOffset != 0),
             ) {
-                for (line in title) inlineLine(line, FontToken.Medium, TextAlign.Center)
-                for (line in body) inlineLine(line, FontToken.Small, TextAlign.Center)
+                text(title, font = FontToken.Medium, align = TextAlign.Center, wrap = true, maxLines = Const.PEEK_TITLE_LINES)
+                text(body, font = FontToken.Small, align = TextAlign.Center, wrap = true, maxLines = Const.PEEK_BODY_LINES)
             }
         }
 
@@ -127,7 +127,7 @@ object HudScreens {
             for (r in rows) when (r) {
                 ListRow.Sep -> separator()
                 is ListRow.Header -> headerRow(r.icon, r.appName, r.time)
-                is ListRow.Line -> inlineLine(r.runs, r.font, TextAlign.Start)
+                is ListRow.Line -> text(r.text, font = r.font, align = TextAlign.Start)
                 ListRow.Bullet -> centeredBullet(bullet)
             }
         }
@@ -139,14 +139,12 @@ object HudScreens {
         box(width = Fill, height = Fixed(Const.SEP_H), background = Const.COLOR_WHITE.toInt())
     }
 
-    private fun ChildrenScope.headerRow(icon: Bitmap?, appName: List<Inline>, time: String) {
+    private fun ChildrenScope.headerRow(icon: Bitmap?, appName: String, time: String) {
         row(width = Fill, spacing = Const.LIST_HEADER_GAP, cross = CrossAlign.Center) {
             if (icon != null) image(key = "listicon", payload = icon, w = Const.LIST_ICON_SIZE, h = Const.LIST_ICON_SIZE)
             else spacer(width = Fixed(Const.LIST_ICON_SIZE), height = Fixed(Const.LIST_ICON_SIZE))
             // App name takes the leftover width (Fill) so the time stays pinned at the right.
-            row(width = Fill, cross = CrossAlign.Center) {
-                inlineLine(appName, FontToken.Small, TextAlign.Start)
-            }
+            text(appName, font = FontToken.Small, align = TextAlign.Start, width = Fill)
             text(time, font = FontToken.Small, align = TextAlign.End)
         }
     }
@@ -154,37 +152,6 @@ object HudScreens {
     private fun ChildrenScope.centeredBullet(bullet: Bitmap) {
         row(width = Fill, height = Fixed(Const.BULLET_SIZE), main = MainAlign.Center, cross = CrossAlign.Center) {
             image(key = "bullet", payload = bullet, w = Const.BULLET_SIZE, h = Const.BULLET_SIZE)
-        }
-    }
-
-    /** Lay out one shaped line as a row of native text + inline glyph images. */
-    private fun ChildrenScope.inlineLine(
-        line: List<Inline>,
-        font: FontToken,
-        align: TextAlign
-    ) {
-        row(width = Fill, spacing = 0, main = mainAlignFor(align), cross = CrossAlign.Center) {
-            for (run in line) {
-                when (run) {
-                    is Inline.Text ->
-                        if (run.ascii.isNotEmpty())
-                            text(
-                                run.ascii,
-                                font = font,
-                                align = TextAlign.Start,
-                                maxLines = 1,
-                                ellipsize = false
-                            )
-
-                    is Inline.Glyph ->
-                        image(
-                            key = run.key,
-                            payload = run.payload,
-                            w = run.widthPx,
-                            h = run.heightPx
-                        )
-                }
-            }
         }
     }
 

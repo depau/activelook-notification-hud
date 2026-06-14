@@ -14,13 +14,24 @@ import eu.depau.glasslayout.core.model.TextAlign
 import eu.depau.glasslayout.core.model.TextEl
 import eu.depau.glasslayout.core.render.RenderCommand
 import eu.depau.glasslayout.core.text.TextMeasurer
+import eu.depau.glasslayout.core.text.TextSpan
+import eu.depau.glasslayout.core.text.TextSpanParser
+import eu.depau.glasslayout.core.text.DefaultTextSpanParser
+import eu.depau.glasslayout.core.text.LineBreaker
+import eu.depau.glasslayout.core.text.StandardLineBreaker
+import eu.depau.glasslayout.core.text.BasicLineBreaker
+import eu.depau.glasslayout.core.model.FontToken
 
 /**
  * Flexbox-style (Clay-inspired) layout solver. Pure: given an [Element] tree, a viewport, and a
  * [TextMeasurer], it produces positioned [RenderCommand]s in logical coordinates. Five passes:
  * fit-widths → grow/shrink-widths → wrap-text + fit-heights → grow/shrink-heights → position+emit.
  */
-class LayoutSolver(private val measurer: TextMeasurer) {
+class LayoutSolver(
+    private val measurer: TextMeasurer,
+    private val parser: TextSpanParser = DefaultTextSpanParser,
+    private val lineBreaker: LineBreaker = StandardLineBreaker()
+) {
 
     fun solve(root: Element, viewport: LSize): List<RenderCommand> {
         val node = build(root)
@@ -35,6 +46,16 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         return out
     }
 
+    fun measureHeight(root: Element, width: Int): Int {
+        val node = build(root)
+        fitWidths(node)
+        node.w = resolveAxis(node.width, node.prefW, node.minW, width, fill = width)
+        growWidths(node)
+        fitHeights(node)
+        node.h = resolveAxis(node.height, node.contentH, node.contentH, 10000, fill = 10000)
+        return node.h
+    }
+
     // --- node ---
 
     private class Node(val el: Element) {
@@ -47,7 +68,7 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         var minW = 0
         var prefW = 0
         var contentH = 0
-        var lines: List<String> = emptyList()
+        var lineSpans: List<List<TextSpan>> = emptyList()
         val children = ArrayList<Node>()
     }
 
@@ -66,7 +87,13 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         val extraW = el.margin.horizontal + el.padding.horizontal + 2 * borderThick
         when (el) {
             is TextEl -> {
-                n.prefW = measurer.measureWidth(el.text, el.font) + extraW
+                val spans = parser.parse(el.text, el.font)
+                n.prefW = spans.sumOf { span ->
+                    when (span) {
+                        is TextSpan.Text -> measurer.measureWidth(span.text, el.font)
+                        is TextSpan.Image -> span.width
+                    }
+                } + extraW
                 n.minW = (if (el.wrap) longestWordWidth(el) else n.prefW - extraW) + extraW
             }
             is ImageEl -> {
@@ -91,8 +118,22 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         }
     }
 
-    private fun longestWordWidth(el: TextEl): Int =
-        el.text.split(Regex("\\s+")).maxOfOrNull { measurer.measureWidth(it, el.font) } ?: 0
+    private fun longestWordWidth(el: TextEl): Int {
+        val spans = parser.parse(el.text, el.font)
+        var maxW = 0
+        for (span in spans) {
+            when (span) {
+                is TextSpan.Image -> maxW = maxOf(maxW, span.width)
+                is TextSpan.Text -> {
+                    val words = span.text.split(Regex("\\s+"))
+                    for (w in words) {
+                        maxW = maxOf(maxW, measurer.measureWidth(w, el.font))
+                    }
+                }
+            }
+        }
+        return maxW
+    }
 
     // --- pass 2: grow/shrink widths (top-down) ---
 
@@ -171,9 +212,11 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         when (el) {
             is TextEl -> {
                 val innerW = (n.w - extraW).coerceAtLeast(0)
-                n.lines = layoutLines(el, innerW)
-                val count = n.lines.size.coerceAtLeast(1)
-                n.h = measurer.lineHeight(el.font) + measurer.linePitch(el.font) * (count - 1) + extraH
+                n.lineSpans = layoutLines(el, innerW)
+                val count = n.lineSpans.size.coerceAtLeast(1)
+                val cell = el.lineHeight ?: measurer.lineHeight(el.font)
+                val pitch = el.linePitch ?: measurer.linePitch(el.font)
+                n.h = cell + pitch * (count - 1) + extraH
                 n.contentH = n.h
             }
             is ImageEl -> {
@@ -198,21 +241,75 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         }
     }
 
-    private fun layoutLines(el: TextEl, width: Int): List<String> {
-        if (el.text.isEmpty()) return emptyList()
-        val natural = measurer.measureWidth(el.text, el.font)
-        if (!el.wrap) {
-            return if (natural <= width || !el.ellipsize) listOf(el.text)
-            else listOf(measurer.ellipsize(el.text, el.font, width))
+    private fun layoutLines(el: TextEl, width: Int): List<List<TextSpan>> {
+        val spans = parser.parse(el.text, el.font)
+        if (spans.isEmpty()) return emptyList()
+        val wrapped = if (!el.wrap) {
+            val paragraphs = BasicLineBreaker().wrap(spans, el.font, width, measurer)
+            val lines = ArrayList<List<TextSpan>>()
+            for (p in paragraphs) {
+                val totalW = p.sumOf { span ->
+                    when (span) {
+                        is TextSpan.Text -> measurer.measureWidth(span.text, el.font)
+                        is TextSpan.Image -> span.width
+                    }
+                }
+                if (totalW <= width || !el.ellipsize) {
+                    lines.add(p)
+                } else {
+                    lines.add(ellipsizeSpans(p, el.font, width))
+                }
+            }
+            lines
+        } else {
+            lineBreaker.wrap(spans, el.font, width, measurer)
         }
-        val wrapped = measurer.wrap(el.text, el.font, width)
-        if (wrapped.size <= el.maxLines) return wrapped
-        val kept = wrapped.take(el.maxLines).toMutableList()
-        if (el.ellipsize && kept.isNotEmpty()) {
-            val remainder = wrapped.drop(el.maxLines - 1).joinToString(" ")
-            kept[kept.lastIndex] = measurer.ellipsize(remainder, el.font, width)
+        val truncated = if (wrapped.size <= el.maxLines) wrapped
+        else {
+            val kept = wrapped.take(el.maxLines).toMutableList()
+            if (el.ellipsize && kept.isNotEmpty()) {
+                val lastLine = kept.last()
+                kept[kept.lastIndex] = ellipsizeSpans(lastLine, el.font, width)
+            }
+            kept
         }
-        return kept
+        return truncated.map { coalesce(it) }
+    }
+
+    private fun ellipsizeSpans(line: List<TextSpan>, font: FontToken, maxWidth: Int): List<TextSpan> {
+        val last = line.toMutableList()
+        val ellW = measurer.measureWidth("...", font)
+        while (last.isNotEmpty() && lineWidth(last, font) + ellW > maxWidth) {
+            val tail = last.last()
+            if (tail is TextSpan.Text && tail.text.length > 1) {
+                last[last.lastIndex] = TextSpan.Text(tail.text.dropLast(1))
+            } else {
+                last.removeAt(last.lastIndex)
+            }
+        }
+        last += TextSpan.Text("...")
+        return coalesce(last)
+    }
+
+    private fun lineWidth(line: List<TextSpan>, font: FontToken): Int = line.sumOf {
+        when (it) {
+            is TextSpan.Text -> measurer.measureWidth(it.text, font)
+            is TextSpan.Image -> it.width
+        }
+    }
+
+    private fun coalesce(line: List<TextSpan>): List<TextSpan> {
+        val out = ArrayList<TextSpan>()
+        val sb = StringBuilder()
+        for (r in line) when (r) {
+            is TextSpan.Text -> sb.append(r.text)
+            is TextSpan.Image -> {
+                if (sb.isNotEmpty()) { out += TextSpan.Text(sb.toString()); sb.setLength(0) }
+                out += r
+            }
+        }
+        if (sb.isNotEmpty()) out += TextSpan.Text(sb.toString())
+        return out
     }
 
     // --- pass 4: grow/shrink heights (top-down) ---
@@ -281,7 +378,7 @@ class LayoutSolver(private val measurer: TextMeasurer) {
                     emit(RenderCommand.Image(contentX, contentY, contentW, contentH, el.key, el.payload), clip, out)
                 }
             }
-            is TextEl -> emitText(n, el, clip, out)
+            is TextEl -> emitText(n, el, clip, out, suppressImages)
             is Container, is SpacerEl -> {}
         }
 
@@ -320,9 +417,9 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         }
     }
 
-    private fun emitText(n: Node, el: TextEl, clip: LRect?, out: MutableList<RenderCommand>) {
-        val cell = measurer.lineHeight(el.font)
-        val pitch = measurer.linePitch(el.font)
+    private fun emitText(n: Node, el: TextEl, clip: LRect?, out: MutableList<RenderCommand>, suppressImages: Boolean) {
+        val cell = el.lineHeight ?: measurer.lineHeight(el.font)
+        val pitch = el.linePitch ?: measurer.linePitch(el.font)
         val borderThick = el.border?.thickness ?: 0
         val drawX = n.x + el.margin.left
         val drawY = n.y + el.margin.top
@@ -331,15 +428,37 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         val contentY = drawY + borderThick + el.padding.top
         val contentW = (drawW - 2 * borderThick - el.padding.horizontal).coerceAtLeast(0)
 
-        n.lines.forEachIndexed { i, line ->
-            val lineW = measurer.measureWidth(line, el.font)
+        n.lineSpans.forEachIndexed { i, line ->
+            val lineW = line.sumOf { span ->
+                when (span) {
+                    is TextSpan.Text -> measurer.measureWidth(span.text, el.font)
+                    is TextSpan.Image -> span.width
+                }
+            }
             val dx = when (el.align) {
                 TextAlign.Start -> 0
                 TextAlign.Center -> (contentW - lineW) / 2
                 TextAlign.End -> contentW - lineW
             }
-            val cmd = RenderCommand.Text(contentX + dx, contentY + i * pitch, line, el.font, el.color, lineW, cell)
-            emit(cmd, clip, out)
+            var spanX = contentX + dx
+            for (span in line) {
+                val spanW = when (span) {
+                    is TextSpan.Text -> {
+                        val w = measurer.measureWidth(span.text, el.font)
+                        val cmd = RenderCommand.Text(spanX, contentY + i * pitch, span.text, el.font, el.color, w, cell)
+                        emit(cmd, clip, out)
+                        w
+                    }
+                    is TextSpan.Image -> {
+                        if (!suppressImages) {
+                            val cmd = RenderCommand.Image(spanX, contentY + i * pitch, span.width, span.height, span.key, span.payload)
+                            emit(cmd, clip, out)
+                        }
+                        span.width
+                    }
+                }
+                spanX += spanW
+            }
         }
     }
 

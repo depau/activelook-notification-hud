@@ -2,6 +2,7 @@ package eu.depau.activelooknotifications.glasses
 
 import android.graphics.Bitmap
 import eu.depau.glasslayout.core.model.FontToken
+import eu.depau.glasslayout.core.text.TextSpan
 
 /**
  * What the HUD status bar should draw, resolved by [GlassesRenderer] from a
@@ -42,10 +43,10 @@ sealed interface ListRow {
     data object Sep : ListRow
 
     /** `[icon] appName - HH:mm` header (Small font). [icon] is null if unavailable. */
-    data class Header(val icon: Bitmap?, val appName: List<Inline>, val time: String) : ListRow
+    data class Header(val icon: Bitmap?, val appName: String, val time: String) : ListRow
 
     /** One wrapped title (Medium) or body (Small) line. */
-    data class Line(val runs: List<Inline>, val font: FontToken) : ListRow
+    data class Line(val text: String, val font: FontToken) : ListRow
 
     /** Centered filled circle marking the end of the list. */
     data object Bullet : ListRow

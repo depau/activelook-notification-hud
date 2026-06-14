@@ -2,6 +2,7 @@ package eu.depau.glasslayout
 
 import eu.depau.glasslayout.core.dsl.Fill
 import eu.depau.glasslayout.core.dsl.Fixed
+import eu.depau.glasslayout.core.dsl.Fit
 import eu.depau.glasslayout.core.dsl.column
 import eu.depau.glasslayout.core.dsl.row
 import eu.depau.glasslayout.core.geom.LSize
@@ -12,6 +13,7 @@ import eu.depau.glasslayout.core.model.MainAlign
 import eu.depau.glasslayout.core.model.BoxInsets
 import eu.depau.glasslayout.core.model.Border
 import eu.depau.glasslayout.core.render.RenderCommand
+import eu.depau.glasslayout.core.text.TextSpan
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -184,5 +186,77 @@ class LayoutSolverTest {
         
         val images = cmds.filterIsInstance<RenderCommand.Image>()
         assertTrue("images should be suppressed", images.isEmpty())
+    }
+
+    @Test fun respectsLineHeightAndPitchOverrides() {
+        val root = column(width = Fixed(100), height = Fixed(100)) {
+            text("A B", font = FontToken.Small, wrap = true, maxLines = 2, width = Fixed(15), lineHeight = 15, linePitch = 8)
+        }
+        val cmds = solver.solve(root, LSize(100, 100))
+        val t = texts(cmds)
+        assertEquals(2, t.size)
+        assertEquals(15, t[0].heightPx)
+        assertEquals(15, t[1].heightPx)
+        assertEquals(0, t[0].y)
+        assertEquals(8, t[1].y)
+    }
+
+    @Test fun measureHeightComputesCorrectHeightWithoutSolvingFullLayout() {
+        val root = column(width = Fixed(100), height = Fit) {
+            text("A", font = FontToken.Small)
+            spacer(height = Fixed(15))
+            text("B", font = FontToken.Small)
+        }
+        val h = solver.measureHeight(root, 100)
+        assertEquals(35, h)
+    }
+
+    @Test fun splitsParagraphsByNewline() {
+        val root = column(width = Fixed(100), height = Fit) {
+            text("Line1\nLine2", font = FontToken.Small, wrap = false, maxLines = 2)
+        }
+        val cmds = solver.solve(root, LSize(100, 100))
+        val t = texts(cmds)
+        assertEquals(2, t.size)
+        assertEquals("Line1", t[0].text)
+        assertEquals("Line2", t[1].text)
+    }
+
+    @Test fun wrapsStandardLineBreakerForMixedSpans() {
+        val emojiParser = object : eu.depau.glasslayout.core.text.TextSpanParser {
+            override fun parse(text: String, font: FontToken): List<TextSpan> {
+                val out = mutableListOf<TextSpan>()
+                val parts = text.split(" ")
+                for ((idx, part) in parts.withIndex()) {
+                    if (idx > 0) out += TextSpan.Text(" ")
+                    if (part == "[emoji]") {
+                        out += TextSpan.Image("emoji-key", "emoji-payload", width = 20, height = 10)
+                    } else {
+                        out += TextSpan.Text(part)
+                    }
+                }
+                return out
+            }
+        }
+        val richSolver = LayoutSolver(FakeMeasurer(charW = 10), parser = emojiParser)
+        val root = column(width = Fixed(100), height = Fixed(100)) {
+            text("abc [emoji] def", font = FontToken.Small, wrap = true, width = Fixed(60), maxLines = 2)
+        }
+        val cmds = richSolver.solve(root, LSize(100, 100))
+        val t = texts(cmds)
+        val images = cmds.filterIsInstance<RenderCommand.Image>()
+        
+        assertEquals(2, t.size)
+        assertEquals("abc ", t[0].text)
+        assertEquals("def", t[1].text)
+        
+        assertEquals(1, images.size)
+        assertEquals("emoji-key", images[0].key)
+        
+        assertEquals(0, t[0].x)
+        assertEquals(40, images[0].x)
+        
+        assertEquals(0, t[1].x)
+        assertEquals(12, t[1].y) // Small linePitch is 12
     }
 }

@@ -19,6 +19,7 @@ import eu.depau.glasslayout.core.layout.LayoutSolver
 import eu.depau.glasslayout.core.model.Element
 import eu.depau.glasslayout.core.model.FontToken
 import eu.depau.glasslayout.core.render.RenderCommand
+import eu.depau.glasslayout.core.text.TextSpan
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -44,9 +45,9 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
         ),
     )
     private val measurer = GlassesTextMeasurer(metrics, fonts)
-    private val shaper = InlineShaper(metrics::measureWidth, AndroidGlyphRasterizer(context))
+    private val shaper = TextSpanParserImpl(fonts, AndroidGlyphRasterizer(context))
     private val statusIcons = StatusIcons()
-    private val solver = LayoutSolver(measurer)
+    private val solver = LayoutSolver(measurer, parser = shaper)
     private val sink = ActiveLookSink(
         differ = Differ(
             screen = LRect(0, 0, Const.SCREEN_W, Const.SCREEN_H),
@@ -90,8 +91,8 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
         present(
             HudScreens.idle(
                 statusModel(status, idle = true),
-                shapeOne(status.time, FontToken.Large),
-                shapeOne(status.date, FontToken.Small),
+                status.time,
+                status.date,
                 contentYOffset
             )
         )
@@ -101,7 +102,7 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
         present(
             HudScreens.appPresent(
                 statusModel(status, idle = false),
-                shapeOne(notif.appName, FontToken.Medium),
+                notif.appName,
                 if (showIcon) iconBitmap else null,
                 contentYOffset
             )
@@ -109,10 +110,7 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
     }
 
     fun renderPeek(notif: NotifItem, status: StatusInfo, contentYOffset: Int = 0) {
-        val w = Const.SCREEN_W - 2 * Const.MARGIN_X
-        val title = shapeLines(notif.title, FontToken.Medium, Const.PEEK_TITLE_LINES, w)
-        val body = shapeLines(notif.sanitizedBody, FontToken.Small, Const.PEEK_BODY_LINES, w)
-        present(HudScreens.peek(statusModel(status, idle = false), title, body, contentYOffset))
+        present(HudScreens.peek(statusModel(status, idle = false), notif.title, notif.sanitizedBody, contentYOffset))
     }
 
     /** Render page [page] of the gesture-opened notification list. */
@@ -132,8 +130,7 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
 
     /** Glance shown when a gesture fires with nothing posted. */
     fun renderNoNotifs(status: StatusInfo, contentYOffset: Int = 0) {
-        val msg = shapeOne("No notifications", FontToken.Medium)
-        present(HudScreens.peek(statusModel(status, idle = false), listOf(msg), emptyList(), contentYOffset))
+        present(HudScreens.peek(statusModel(status, idle = false), "No notifications", "", contentYOffset))
     }
 
     /** Resolve the phone/glasses [StatusInfo] into icon bitmaps + a primitive battery for [HudScreens]. */
@@ -158,12 +155,6 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
         return StatusBarModel(glasses, phone, right, px)
     }
 
-    private fun shapeOne(text: String, font: FontToken): List<Inline> =
-        shaper.shape(text, fontPx(font), Const.SCREEN_W - 2 * Const.MARGIN_X, 1).firstOrNull() ?: emptyList()
-
-    private fun shapeLines(text: String, font: FontToken, maxLines: Int, widthPx: Int): List<List<Inline>> =
-        shaper.shape(text, fontPx(font), widthPx, maxLines)
-
     private fun fontPx(font: FontToken): Int = fonts.resolve(font).heightPx
 
     // --- Notification list: row construction + pagination height math ---
@@ -175,19 +166,17 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
     /** Pre-shape the whole list into [ListRow]s (heights become deterministic for pagination). */
     private fun buildListRows(items: List<NotifItem>): List<ListRow> {
         val w = listContentWidth()
-        // App name shares the header row with the icon + " HH:mm"; ellipsize it to the leftover.
-        val appNameW = (w - Const.LIST_ICON_SIZE - 2 * Const.LIST_HEADER_GAP -
-            measurer.measureWidth(" 00:00", FontToken.Small)).coerceAtLeast(1)
         val rows = ArrayList<ListRow>()
         rows += ListRow.Sep
         for (it in items) {
             val time = timeFmt.format(Date(it.postTime))
-            val appName = shaper.shape(it.appName, fontPx(FontToken.Small), appNameW, 1).firstOrNull() ?: emptyList()
-            rows += ListRow.Header(it.listIconBitmap, appName, time)
-            for (line in shapeLines(it.title, FontToken.Small, Const.LIST_MAX_TITLE_LINES, w)) {
+            rows += ListRow.Header(it.listIconBitmap, it.appName, time)
+            val titleLines = measurer.wrap(it.title, FontToken.Small, w).take(Const.LIST_MAX_TITLE_LINES)
+            for (line in titleLines) {
                 rows += ListRow.Line(line, FontToken.Small)
             }
-            for (line in shapeLines(it.sanitizedBody, FontToken.Small, Const.LIST_MAX_BODY_LINES, w)) {
+            val bodyLines = measurer.wrap(it.sanitizedBody, FontToken.Small, w).take(Const.LIST_MAX_BODY_LINES)
+            for (line in bodyLines) {
                 rows += ListRow.Line(line, FontToken.Small)
             }
             rows += ListRow.Sep
