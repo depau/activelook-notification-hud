@@ -32,7 +32,7 @@ sealed interface RenderCommand {
     }
 
     data class Image(
-        val x: Int, val y: Int, val w: Int, val h: Int, val key: Any, val payload: Any,
+        val x: Int, val y: Int, val w: Int, val h: Int, val payload: Any,
     ) : RenderCommand {
         override val bounds get() = LRect.xywh(x, y, w, h)
         override val z get() = 3

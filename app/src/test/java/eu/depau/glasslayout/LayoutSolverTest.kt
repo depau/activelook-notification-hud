@@ -178,7 +178,7 @@ class LayoutSolverTest {
     @Test fun suppressImagesInContainerHidesImagesButKeepsSpace() {
         val root = column(width = Fixed(100), height = Fixed(100)) {
             column(width = Fill, height = Fill, suppressImages = true) {
-                image(key = "img", payload = "payload", w = 20, h = 20)
+                image(payload = "payload", w = 20, h = 20)
                 text("AB", font = FontToken.Small)
             }
         }
@@ -270,7 +270,6 @@ class LayoutSolverTest {
         assertEquals("def", t[1].text)
         
         assertEquals(1, images.size)
-        assertEquals("emoji-key", images[0].key)
         
         assertEquals(0, t[0].x)
         assertEquals(40, images[0].x)

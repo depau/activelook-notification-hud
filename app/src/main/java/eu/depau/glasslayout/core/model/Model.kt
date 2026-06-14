@@ -2,8 +2,8 @@ package eu.depau.glasslayout.core.model
 
 /**
  * The immutable element tree the layout engine solves. Pure data — no Android, no SDK, no app types.
- * Images are intentionally OPAQUE here ([ImageEl.payload]/[ImageEl.key]); the renderer backend
- * decides how to draw them (e.g. stream a Bitmap or display a saved-image id).
+ * Images are intentionally OPAQUE here ([ImageEl.payload]); the renderer backend decides how to
+ * draw them (e.g. stream a Bitmap or display a saved-image id).
  */
 
 /** Abstract font size class; a [eu.depau.glasslayout.core.text.TextMeasurer] maps it to real metrics. */
@@ -111,7 +111,6 @@ data class TextEl(
 data class ImageEl(
     override val width: Sizing,
     override val height: Sizing,
-    val key: Any,
     val payload: Any,
     val wPx: Int,
     val hPx: Int,

@@ -408,7 +408,7 @@ class LayoutSolver(
                 val contentW = drawW - 2 * borderThick - el.padding.horizontal
                 val contentH = drawH - 2 * borderThick - el.padding.vertical
                 if (contentW > 0 && contentH > 0 && el.draw && !suppressImages) {
-                    emit(RenderCommand.Image(contentX, contentY, contentW, contentH, el.key, el.payload), clip, out)
+                    emit(RenderCommand.Image(contentX, contentY, contentW, contentH, el.payload), clip, out)
                 }
             }
             is TextEl -> emitText(n, el, clip, out, suppressImages)
@@ -484,7 +484,8 @@ class LayoutSolver(
                     }
                     is TextSpan.Image -> {
                         if (!suppressImages) {
-                            val cmd = RenderCommand.Image(spanX, contentY + i * pitch, span.width, span.height, span.key, span.payload)
+                            val cmd = RenderCommand.Image(spanX, contentY + i * pitch, span.width, span.height,
+                                span.payload)
                             emit(cmd, clip, out)
                         }
                         span.width

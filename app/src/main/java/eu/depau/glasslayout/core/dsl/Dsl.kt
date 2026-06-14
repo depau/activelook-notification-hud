@@ -113,7 +113,6 @@ class ChildrenScope {
     }
 
     fun image(
-        key: Any,
         payload: Any,
         w: Int,
         h: Int,
@@ -123,7 +122,8 @@ class ChildrenScope {
         background: Int? = null,
         draw: Boolean = true,
     ) {
-        children += ImageEl(Fixed(w), Fixed(h), key, payload, w, h, margin, padding, border, background, draw)
+        children += ImageEl(Fixed(w), Fixed(h),
+            payload, w, h, margin, padding, border, background, draw)
     }
 
     fun spacer(

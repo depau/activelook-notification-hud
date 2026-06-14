@@ -74,7 +74,6 @@ object HudScreens {
                 suppressImages = (yOffset != 0),
             ) {
                 if (icon != null) image(
-                    key = "icon",
                     payload = icon,
                     w = Const.ICON_SIZE,
                     h = Const.ICON_SIZE
@@ -189,7 +188,7 @@ object HudScreens {
 
     private fun ChildrenScope.centeredBullet(bullet: Bitmap) {
         row(width = Fill, height = Fixed(Const.BULLET_SIZE), main = MainAlign.Center, cross = CrossAlign.Center) {
-            image(key = "bullet", payload = bullet, w = Const.BULLET_SIZE, h = Const.BULLET_SIZE)
+            image(payload = bullet, w = Const.BULLET_SIZE, h = Const.BULLET_SIZE)
         }
     }
 
@@ -226,7 +225,7 @@ object HudScreens {
 
     private fun ChildrenScope.batteryViz(b: BatteryViz, fontPx: Int) {
         row(spacing = Const.STATUS_PCT_GAP, cross = CrossAlign.Center) {
-            image(key = b.key, payload = b.bitmap, w = fontPx, h = fontPx)
+            image(payload = b.bitmap, w = fontPx, h = fontPx)
             if (b.percent.isNotEmpty()) text(b.percent, font = FontToken.Small)
         }
     }
