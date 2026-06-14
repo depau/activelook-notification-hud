@@ -61,7 +61,7 @@ fun AppPickerScreen(
     val allowed by settings.allowedPackages.collectAsState(initial = emptySet())
     val denylist by settings.denylistMode.collectAsState(initial = false)
     val appsState = produceState<List<InstalledApp>?>(initialValue = null, showSystem) {
-        value = installedApps.getApps(showSystem)
+        value = installedApps.getApps(showSystem, allowed)
     }
     val apps = appsState.value
 

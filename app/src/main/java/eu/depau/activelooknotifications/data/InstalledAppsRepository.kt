@@ -25,11 +25,13 @@ class InstalledAppsRepository(private val context: Context) {
      * Returns launchable apps sorted by label. Includes apps with a launcher entry plus any
      * already-allowed packages (so a selected app never silently vanishes from the list).
      */
-    suspend fun getApps(includeSystem: Boolean): List<InstalledApp> = withContext(Dispatchers.IO) {
-        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val resolved = pm.queryIntentActivities(launcherIntent, 0)
+    suspend fun getApps(includeSystem: Boolean, allowed: Set<String>): List<InstalledApp> = withContext(Dispatchers.IO) {
         val seen = HashSet<String>()
         val result = ArrayList<InstalledApp>()
+
+        // 1. Add all launchable apps
+        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val resolved = pm.queryIntentActivities(launcherIntent, 0)
         for (ri in resolved) {
             val ai = ri.activityInfo?.applicationInfo ?: continue
             val pkg = ai.packageName
@@ -46,6 +48,46 @@ class InstalledAppsRepository(private val context: Context) {
                 )
             )
         }
+
+        // 2. Add all already-allowed apps so they don't vanish
+        for (pkg in allowed) {
+            if (pkg == context.packageName) continue
+            if (!seen.add(pkg)) continue
+            try {
+                val ai = pm.getApplicationInfo(pkg, 0)
+                val isSystem = (ai.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                result.add(
+                    InstalledApp(
+                        packageName = pkg,
+                        label = pm.getApplicationLabel(ai).toString(),
+                        icon = pm.getApplicationIcon(ai),
+                        isSystem = isSystem,
+                    )
+                )
+            } catch (e: Exception) {
+                // Package not installed anymore
+            }
+        }
+
+        // 3. If includeSystem is true, add all other installed applications
+        if (includeSystem) {
+            val allApps = pm.getInstalledApplications(0)
+            for (ai in allApps) {
+                val pkg = ai.packageName
+                if (pkg == context.packageName) continue
+                if (!seen.add(pkg)) continue
+                val isSystem = (ai.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                result.add(
+                    InstalledApp(
+                        packageName = pkg,
+                        label = pm.getApplicationLabel(ai).toString(),
+                        icon = pm.getApplicationIcon(ai),
+                        isSystem = isSystem,
+                    )
+                )
+            }
+        }
+
         result.sortedBy { it.label.lowercase() }
     }
 }

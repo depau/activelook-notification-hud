@@ -209,18 +209,19 @@ cell), other scripts via system fallback. LRU-cached (64 entries) keyed `run@fon
 
 ### Screen builders (`HudScreens.kt`)
 
-Pure layout; receives content **pre-shaped** as `Inline` runs. Every screen is a fixed `W×H` root
-column with safe-margin padding, a status bar at top, and a `clip=true` + `translateY` content
-column so animation slides clipped content. Screens: `idle` (clock), `appPresent` (icon + app-name
-splash), `peek` (title + first body lines), `notifList` (paginated full list with scrollbar).
+Pure layout. Every screen is a fixed `W×H` root column with safe-margin padding, a status bar at top,
+and a `clip=true` + `translateY` content column so animation slides clipped content. Screens: `idle`
+(clock), `appPresent` (icon + app-name splash), `peek` (title + first body lines), `notifList` (paginated
+full list with scrollbar).
 
 **`drawGlyphs=false` during animation**: mid-animation frames reserve glyph width with a `spacer`
 instead of streaming the image, so layout doesn't jump frame-to-frame and BLE isn't flooded. Glyphs
 stream only on the settled frame (`drawGlyphs = (contentYOffset == 0)`).
 
-**Pagination math (`GlassesRenderer`) must mirror the solver exactly** — row heights, gaps, and
-status-bar subtraction are reproduced so page boundaries land precisely. If you change `notifList`
-layout, update the pagination math in lockstep.
+**Pagination and Scrolling**: The layout solver handles text wrapping and pagination boundaries
+dynamically. The scroll offset and page count are computed in the layout solver using the solved
+child elements' heights (via `ScrollOffset.Dynamic`).
+
 
 ---
 
