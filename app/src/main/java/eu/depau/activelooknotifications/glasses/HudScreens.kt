@@ -147,7 +147,32 @@ object HudScreens {
     private fun ChildrenScope.notifListContent(rows: List<ListRow>, bullet: Bitmap) {
         for (r in rows) when (r) {
             ListRow.Sep -> separator()
-            is ListRow.Header -> headerRow(r.icon, r.appName, r.time)
+            is ListRow.Header -> {
+                row(width = Fill, spacing = Const.LIST_HEADER_GAP, cross = CrossAlign.Center) {
+                    if (r.icon != null) this@notifListContent.image(
+                        key = "listicon",
+                        payload = r.icon,
+                        w = Const.LIST_ICON_SIZE,
+                        h = Const.LIST_ICON_SIZE
+                    )
+                    else this@notifListContent.spacer(
+                        width = Fixed(Const.LIST_ICON_SIZE),
+                        height = Fixed(Const.LIST_ICON_SIZE)
+                    )
+                    // App name takes the leftover width (Fill) so the time stays pinned at the right.
+                    this@notifListContent.text(
+                        r.appName,
+                        font = FontToken.Small,
+                        align = TextAlign.Start,
+                        width = Fill
+                    )
+                    this@notifListContent.text(
+                        r.time,
+                        font = FontToken.Small,
+                        align = TextAlign.End
+                    )
+                }
+            }
             is ListRow.Line -> text(r.text, font = r.font, align = TextAlign.Start)
             ListRow.Bullet -> {
                 centeredBullet(bullet)
@@ -160,16 +185,6 @@ object HudScreens {
 
     private fun ChildrenScope.separator() {
         box(width = Fill, height = Fixed(Const.SEP_H), background = Const.COLOR_WHITE.toInt())
-    }
-
-    private fun ChildrenScope.headerRow(icon: Bitmap?, appName: String, time: String) {
-        row(width = Fill, spacing = Const.LIST_HEADER_GAP, cross = CrossAlign.Center) {
-            if (icon != null) image(key = "listicon", payload = icon, w = Const.LIST_ICON_SIZE, h = Const.LIST_ICON_SIZE)
-            else spacer(width = Fixed(Const.LIST_ICON_SIZE), height = Fixed(Const.LIST_ICON_SIZE))
-            // App name takes the leftover width (Fill) so the time stays pinned at the right.
-            text(appName, font = FontToken.Small, align = TextAlign.Start, width = Fill)
-            text(time, font = FontToken.Small, align = TextAlign.End)
-        }
     }
 
     private fun ChildrenScope.centeredBullet(bullet: Bitmap) {
