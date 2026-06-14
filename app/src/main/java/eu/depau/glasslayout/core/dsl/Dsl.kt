@@ -7,7 +7,8 @@ import eu.depau.glasslayout.core.model.Element
 import eu.depau.glasslayout.core.model.FontToken
 import eu.depau.glasslayout.core.model.ImageEl
 import eu.depau.glasslayout.core.model.MainAlign
-import eu.depau.glasslayout.core.model.Padding
+import eu.depau.glasslayout.core.model.BoxInsets
+import eu.depau.glasslayout.core.model.Border
 import eu.depau.glasslayout.core.model.Sizing
 import eu.depau.glasslayout.core.model.SpacerEl
 import eu.depau.glasslayout.core.model.TextAlign
@@ -33,42 +34,42 @@ class ChildrenScope {
     fun column(
         width: Sizing = Fit,
         height: Sizing = Fit,
-        padding: Padding = Padding.NONE,
-        gap: Int = 0,
+        padding: BoxInsets = BoxInsets.NONE,
+        spacing: Int = 0,
         main: MainAlign = MainAlign.Start,
         cross: CrossAlign = CrossAlign.Start,
-        fill: Int? = null,
-        borderColor: Int? = null,
-        borderThick: Int = 0,
+        background: Int? = null,
+        border: Border? = null,
         clip: Boolean = false,
         scrollY: Int = 0,
         translateY: Int = 0,
+        margin: BoxInsets = BoxInsets.NONE,
         content: ChildrenScope.() -> Unit = {},
     ) {
         children += buildContainer(
-            Dir.Column, width, height, padding, gap, main, cross,
-            fill, borderColor, borderThick, clip, scrollY, translateY, content,
+            Dir.Column, width, height, padding, spacing, main, cross,
+            background, border, clip, scrollY, translateY, margin, content,
         )
     }
 
     fun row(
         width: Sizing = Fit,
         height: Sizing = Fit,
-        padding: Padding = Padding.NONE,
-        gap: Int = 0,
+        padding: BoxInsets = BoxInsets.NONE,
+        spacing: Int = 0,
         main: MainAlign = MainAlign.Start,
         cross: CrossAlign = CrossAlign.Start,
-        fill: Int? = null,
-        borderColor: Int? = null,
-        borderThick: Int = 0,
+        background: Int? = null,
+        border: Border? = null,
         clip: Boolean = false,
         scrollY: Int = 0,
         translateY: Int = 0,
+        margin: BoxInsets = BoxInsets.NONE,
         content: ChildrenScope.() -> Unit = {},
     ) {
         children += buildContainer(
-            Dir.Row, width, height, padding, gap, main, cross,
-            fill, borderColor, borderThick, clip, scrollY, translateY, content,
+            Dir.Row, width, height, padding, spacing, main, cross,
+            background, border, clip, scrollY, translateY, margin, content,
         )
     }
 
@@ -76,15 +77,15 @@ class ChildrenScope {
     fun box(
         width: Sizing = Fit,
         height: Sizing = Fit,
-        padding: Padding = Padding.NONE,
-        gap: Int = 0,
+        padding: BoxInsets = BoxInsets.NONE,
+        spacing: Int = 0,
         main: MainAlign = MainAlign.Start,
         cross: CrossAlign = CrossAlign.Start,
-        fill: Int? = null,
-        borderColor: Int? = null,
-        borderThick: Int = 1,
+        background: Int? = null,
+        border: Border? = null,
+        margin: BoxInsets = BoxInsets.NONE,
         content: ChildrenScope.() -> Unit = {},
-    ) = column(width, height, padding, gap, main, cross, fill, borderColor, borderThick, content = content)
+    ) = column(width, height, padding, spacing, main, cross, background, border, margin = margin, content = content)
 
     fun text(
         text: String,
@@ -95,28 +96,50 @@ class ChildrenScope {
         wrap: Boolean = false,
         maxLines: Int = 1,
         ellipsize: Boolean = true,
+        margin: BoxInsets = BoxInsets.NONE,
+        padding: BoxInsets = BoxInsets.NONE,
+        border: Border? = null,
+        background: Int? = null,
     ) {
-        children += TextEl(width, Fit, text, font, color, align, wrap, maxLines, ellipsize)
+        children += TextEl(width, Fit, text, font, color, align, wrap, maxLines, ellipsize, margin, padding, border, background)
     }
 
-    fun image(key: Any, payload: Any, w: Int, h: Int) {
-        children += ImageEl(Fixed(w), Fixed(h), key, payload, w, h)
+    fun image(
+        key: Any,
+        payload: Any,
+        w: Int,
+        h: Int,
+        margin: BoxInsets = BoxInsets.NONE,
+        padding: BoxInsets = BoxInsets.NONE,
+        border: Border? = null,
+        background: Int? = null,
+        draw: Boolean = true,
+    ) {
+        children += ImageEl(Fixed(w), Fixed(h), key, payload, w, h, margin, padding, border, background, draw)
     }
 
-    fun spacer(width: Sizing = Fit, height: Sizing = Fit) {
-        children += SpacerEl(width, height)
+    fun spacer(
+        width: Sizing = Fit,
+        height: Sizing = Fit,
+        margin: BoxInsets = BoxInsets.NONE,
+        padding: BoxInsets = BoxInsets.NONE,
+        border: Border? = null,
+        background: Int? = null,
+    ) {
+        children += SpacerEl(width, height, margin, padding, border, background)
     }
 }
 
 private fun buildContainer(
-    dir: Dir, width: Sizing, height: Sizing, padding: Padding, gap: Int,
-    main: MainAlign, cross: CrossAlign, fill: Int?, borderColor: Int?, borderThick: Int,
-    clip: Boolean, scrollY: Int, translateY: Int, content: ChildrenScope.() -> Unit,
+    dir: Dir, width: Sizing, height: Sizing, padding: BoxInsets, spacing: Int,
+    main: MainAlign, cross: CrossAlign, background: Int?, border: Border?,
+    clip: Boolean, scrollY: Int, translateY: Int, margin: BoxInsets,
+    content: ChildrenScope.() -> Unit,
 ): Container {
     val scope = ChildrenScope().apply(content)
     return Container(
-        width, height, dir, padding, gap, main, cross,
-        fill, borderColor, borderThick, clip, scrollY, translateY, scope.children,
+        width, height, dir, padding, spacing, main, cross,
+        background, border, clip, scrollY, translateY, scope.children, margin
     )
 }
 
@@ -124,37 +147,37 @@ private fun buildContainer(
 fun column(
     width: Sizing = Fit,
     height: Sizing = Fit,
-    padding: Padding = Padding.NONE,
-    gap: Int = 0,
+    padding: BoxInsets = BoxInsets.NONE,
+    spacing: Int = 0,
     main: MainAlign = MainAlign.Start,
     cross: CrossAlign = CrossAlign.Start,
-    fill: Int? = null,
-    borderColor: Int? = null,
-    borderThick: Int = 0,
+    background: Int? = null,
+    border: Border? = null,
     clip: Boolean = false,
     scrollY: Int = 0,
     translateY: Int = 0,
+    margin: BoxInsets = BoxInsets.NONE,
     content: ChildrenScope.() -> Unit = {},
 ): Element = buildContainer(
-    Dir.Column, width, height, padding, gap, main, cross,
-    fill, borderColor, borderThick, clip, scrollY, translateY, content,
+    Dir.Column, width, height, padding, spacing, main, cross,
+    background, border, clip, scrollY, translateY, margin, content,
 )
 
 fun row(
     width: Sizing = Fit,
     height: Sizing = Fit,
-    padding: Padding = Padding.NONE,
-    gap: Int = 0,
+    padding: BoxInsets = BoxInsets.NONE,
+    spacing: Int = 0,
     main: MainAlign = MainAlign.Start,
     cross: CrossAlign = CrossAlign.Start,
-    fill: Int? = null,
-    borderColor: Int? = null,
-    borderThick: Int = 0,
+    background: Int? = null,
+    border: Border? = null,
     clip: Boolean = false,
     scrollY: Int = 0,
     translateY: Int = 0,
+    margin: BoxInsets = BoxInsets.NONE,
     content: ChildrenScope.() -> Unit = {},
 ): Element = buildContainer(
-    Dir.Row, width, height, padding, gap, main, cross,
-    fill, borderColor, borderThick, clip, scrollY, translateY, content,
+    Dir.Row, width, height, padding, spacing, main, cross,
+    background, border, clip, scrollY, translateY, margin, content,
 )

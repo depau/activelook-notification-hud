@@ -26,26 +26,32 @@ enum class MainAlign { Start, Center, End, SpaceBetween }
 enum class CrossAlign { Start, Center, End, Stretch }
 enum class TextAlign { Start, Center, End }
 
-data class Padding(val left: Int = 0, val top: Int = 0, val right: Int = 0, val bottom: Int = 0) {
+data class BoxInsets(val left: Int = 0, val top: Int = 0, val right: Int = 0, val bottom: Int = 0) {
     val horizontal: Int get() = left + right
     val vertical: Int get() = top + bottom
 
     companion object {
-        val NONE = Padding()
-        fun all(p: Int) = Padding(p, p, p, p)
-        fun symH(h: Int) = Padding(h, 0, h, 0)
-        fun symV(v: Int) = Padding(0, v, 0, v)
-        fun sym(h: Int, v: Int) = Padding(h, v, h, v)
+        val NONE = BoxInsets()
+        fun all(p: Int) = BoxInsets(p, p, p, p)
+        fun symH(h: Int) = BoxInsets(h, 0, h, 0)
+        fun symV(v: Int) = BoxInsets(0, v, 0, v)
+        fun sym(h: Int, v: Int) = BoxInsets(h, v, h, v)
     }
 }
+
+data class Border(val color: Int, val thickness: Int = 1)
 
 sealed interface Element {
     val width: Sizing
     val height: Sizing
+    val margin: BoxInsets get() = BoxInsets.NONE
+    val padding: BoxInsets get() = BoxInsets.NONE
+    val border: Border? get() = null
+    val background: Int? get() = null
 }
 
 /**
- * A flex container; also doubles as a "box" when [fill]/[borderColor] are set. Children lay out
+ * A flex container; also doubles as a "box" when [background]/[border] are set. Children lay out
  * along [dir]. [clip] + [scrollY] make it a scroll viewport (children translated up by scrollY,
  * those fully outside the container's box are pruned at whole-element granularity).
  */
@@ -53,18 +59,18 @@ data class Container(
     override val width: Sizing,
     override val height: Sizing,
     val dir: Dir,
-    val padding: Padding,
-    val gap: Int,
+    override val padding: BoxInsets,
+    val spacing: Int,
     val main: MainAlign,
     val cross: CrossAlign,
-    val fill: Int? = null,
-    val borderColor: Int? = null,
-    val borderThick: Int = 0,
+    override val background: Int? = null,
+    override val border: Border? = null,
     val clip: Boolean = false,
     val scrollY: Int = 0,
     /** Logical Y translation applied to this subtree (used for slide animations). */
     val translateY: Int = 0,
     val children: List<Element> = emptyList(),
+    override val margin: BoxInsets = BoxInsets.NONE,
 ) : Element
 
 data class TextEl(
@@ -77,6 +83,10 @@ data class TextEl(
     val wrap: Boolean,
     val maxLines: Int,
     val ellipsize: Boolean,
+    override val margin: BoxInsets = BoxInsets.NONE,
+    override val padding: BoxInsets = BoxInsets.NONE,
+    override val border: Border? = null,
+    override val background: Int? = null,
 ) : Element
 
 data class ImageEl(
@@ -86,9 +96,18 @@ data class ImageEl(
     val payload: Any,
     val wPx: Int,
     val hPx: Int,
+    override val margin: BoxInsets = BoxInsets.NONE,
+    override val padding: BoxInsets = BoxInsets.NONE,
+    override val border: Border? = null,
+    override val background: Int? = null,
+    val draw: Boolean = true,
 ) : Element
 
 data class SpacerEl(
     override val width: Sizing,
     override val height: Sizing,
+    override val margin: BoxInsets = BoxInsets.NONE,
+    override val padding: BoxInsets = BoxInsets.NONE,
+    override val border: Border? = null,
+    override val background: Int? = null,
 ) : Element

@@ -9,6 +9,8 @@ import eu.depau.glasslayout.core.layout.LayoutSolver
 import eu.depau.glasslayout.core.model.CrossAlign
 import eu.depau.glasslayout.core.model.FontToken
 import eu.depau.glasslayout.core.model.MainAlign
+import eu.depau.glasslayout.core.model.BoxInsets
+import eu.depau.glasslayout.core.model.Border
 import eu.depau.glasslayout.core.render.RenderCommand
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -52,9 +54,9 @@ class LayoutSolverTest {
 
     @Test fun growWidthsSplitWithRemainderToLast() {
         val root = row(width = Fixed(101), height = Fixed(10)) {
-            box(width = Fill, height = Fill, fill = 1)
-            box(width = Fill, height = Fill, fill = 1)
-            box(width = Fill, height = Fill, fill = 1)
+            box(width = Fill, height = Fill, background = 1)
+            box(width = Fill, height = Fill, background = 1)
+            box(width = Fill, height = Fill, background = 1)
         }
         val f = fills(solver.solve(root, LSize(101, 10))).sortedBy { it.rect.left }
         assertEquals(3, f.size)
@@ -81,5 +83,90 @@ class LayoutSolverTest {
         }
         val t = texts(solver.solve(root, LSize(100, 100))).single()
         assertEquals(40, t.x) // (100-20)/2
+    }
+
+    @Test fun marginShiftsTextElPosition() {
+        val root = column(width = Fixed(100), height = Fixed(100)) {
+            text("AB", font = FontToken.Small, margin = BoxInsets(left = 10, top = 5, right = 0, bottom = 0))
+        }
+        val t = texts(solver.solve(root, LSize(100, 100))).single()
+        assertEquals(10, t.x)
+        assertEquals(5, t.y)
+    }
+
+    @Test fun paddingShiftsTextElContent() {
+        val root = column(width = Fixed(100), height = Fixed(100)) {
+            text("AB", font = FontToken.Small, padding = BoxInsets(left = 15, top = 8, right = 5, bottom = 2))
+        }
+        val t = texts(solver.solve(root, LSize(100, 100))).single()
+        assertEquals(15, t.x)
+        assertEquals(8, t.y)
+    }
+
+    @Test fun borderDrawsRectAndOffsetsTextElContent() {
+        val root = column(width = Fixed(100), height = Fixed(100)) {
+            text("AB", font = FontToken.Small, border = Border(color = 3, thickness = 2))
+        }
+        val cmds = solver.solve(root, LSize(100, 100))
+        val borders = cmds.filterIsInstance<RenderCommand.BorderRect>()
+        val border = borders.single()
+        assertEquals(0, border.rect.left)
+        assertEquals(0, border.rect.top)
+        assertEquals(24, border.rect.width)
+        assertEquals(14, border.rect.height)
+        assertEquals(3, border.color)
+        assertEquals(2, border.thick)
+        
+        val t = texts(cmds).single()
+        assertEquals(2, t.x)
+        assertEquals(2, t.y)
+    }
+
+    @Test fun backgroundDrawsRect() {
+        val root = column(width = Fixed(100), height = Fixed(100)) {
+            text("AB", font = FontToken.Small, background = 5)
+        }
+        val cmds = solver.solve(root, LSize(100, 100))
+        val bg = fills(cmds).single()
+        assertEquals(0, bg.rect.left)
+        assertEquals(0, bg.rect.top)
+        assertEquals(20, bg.rect.width)
+        assertEquals(10, bg.rect.height)
+        assertEquals(5, bg.color)
+    }
+
+    @Test fun boxModelCombinationOnContainer() {
+        val root = column(width = Fixed(100), height = Fixed(100)) {
+            column(
+                width = Fill,
+                height = Fixed(50),
+                margin = BoxInsets(left = 5, top = 10, right = 15, bottom = 20),
+                padding = BoxInsets(left = 2, top = 4, right = 6, bottom = 8),
+                border = Border(color = 7, thickness = 3),
+                background = 9
+            ) {
+                text("A", font = FontToken.Small)
+            }
+        }
+        val cmds = solver.solve(root, LSize(100, 100))
+        
+        val bg = fills(cmds).single()
+        assertEquals(5, bg.rect.left)
+        assertEquals(10, bg.rect.top)
+        assertEquals(80, bg.rect.width)
+        assertEquals(20, bg.rect.height)
+        assertEquals(9, bg.color)
+        
+        val border = cmds.filterIsInstance<RenderCommand.BorderRect>().single()
+        assertEquals(5, border.rect.left)
+        assertEquals(10, border.rect.top)
+        assertEquals(80, border.rect.width)
+        assertEquals(20, border.rect.height)
+        assertEquals(7, border.color)
+        assertEquals(3, border.thick)
+        
+        val t = texts(cmds).single()
+        assertEquals(10, t.x)
+        assertEquals(17, t.y)
     }
 }

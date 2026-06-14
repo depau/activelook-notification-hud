@@ -61,17 +61,26 @@ class LayoutSolver(private val measurer: TextMeasurer) {
 
     private fun fitWidths(n: Node) {
         n.children.forEach { fitWidths(it) }
-        when (val el = n.el) {
+        val el = n.el
+        val borderThick = el.border?.thickness ?: 0
+        val extraW = el.margin.horizontal + el.padding.horizontal + 2 * borderThick
+        when (el) {
             is TextEl -> {
-                n.prefW = measurer.measureWidth(el.text, el.font)
-                n.minW = if (el.wrap) longestWordWidth(el) else n.prefW
+                n.prefW = measurer.measureWidth(el.text, el.font) + extraW
+                n.minW = (if (el.wrap) longestWordWidth(el) else n.prefW - extraW) + extraW
             }
-            is ImageEl -> { n.prefW = el.wPx; n.minW = el.wPx }
-            is SpacerEl -> { n.prefW = 0; n.minW = 0 }
+            is ImageEl -> {
+                n.prefW = el.wPx + extraW
+                n.minW = el.wPx + extraW
+            }
+            is SpacerEl -> {
+                n.prefW = extraW
+                n.minW = extraW
+            }
             is Container -> {
-                val pad = el.padding.horizontal
+                val pad = el.margin.horizontal + el.padding.horizontal + 2 * borderThick
                 if (el.dir == Dir.Row) {
-                    val gaps = gapTotal(el.gap, n.children.size)
+                    val gaps = gapTotal(el.spacing, n.children.size)
                     n.prefW = n.children.sumOf { it.prefW } + gaps + pad
                     n.minW = n.children.sumOf { it.minW } + gaps + pad
                 } else {
@@ -90,11 +99,12 @@ class LayoutSolver(private val measurer: TextMeasurer) {
     private fun growWidths(n: Node) {
         val el = n.el
         if (el !is Container) return
-        val contentW = (n.w - el.padding.horizontal).coerceAtLeast(0)
+        val borderThick = el.border?.thickness ?: 0
+        val contentW = (n.w - el.margin.horizontal - el.padding.horizontal - 2 * borderThick).coerceAtLeast(0)
         if (el.dir == Dir.Row) {
             // Base sizes.
             for (c in n.children) c.w = baseMain(c, contentW)
-            val used = n.children.sumOf { it.w } + gapTotal(el.gap, n.children.size)
+            val used = n.children.sumOf { it.w } + gapTotal(el.spacing, n.children.size)
             val remaining = contentW - used
             if (remaining > 0) {
                 distributeGrow(n.children, remaining)
@@ -142,7 +152,8 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         val take = deficit.coerceAtMost(capacity)
         var left = take
         shrinkables.forEachIndexed { i, c ->
-            val cap = (c.w - c.minW).coerceAtLeast(0)
+            val
+            cap = (c.w - c.minW).coerceAtLeast(0)
             val cut = if (i == shrinkables.lastIndex) left.coerceAtMost(cap) else (take * cap / capacity).coerceAtMost(cap)
             c.w -= cut
             left -= cut
@@ -153,24 +164,31 @@ class LayoutSolver(private val measurer: TextMeasurer) {
 
     private fun fitHeights(n: Node) {
         n.children.forEach { fitHeights(it) }
-        when (val el = n.el) {
+        val el = n.el
+        val borderThick = el.border?.thickness ?: 0
+        val extraH = el.margin.vertical + el.padding.vertical + 2 * borderThick
+        val extraW = el.margin.horizontal + el.padding.horizontal + 2 * borderThick
+        when (el) {
             is TextEl -> {
-                n.lines = layoutLines(el, n.w)
+                val innerW = (n.w - extraW).coerceAtLeast(0)
+                n.lines = layoutLines(el, innerW)
                 val count = n.lines.size.coerceAtLeast(1)
-                n.h = measurer.lineHeight(el.font) + measurer.linePitch(el.font) * (count - 1)
+                n.h = measurer.lineHeight(el.font) + measurer.linePitch(el.font) * (count - 1) + extraH
                 n.contentH = n.h
             }
-            is ImageEl -> { n.h = el.hPx; n.contentH = el.hPx }
+            is ImageEl -> {
+                n.h = el.hPx + extraH
+                n.contentH = el.hPx + extraH
+            }
             is SpacerEl -> {
-                n.h = if (el.height is Sizing.Fixed) (el.height as Sizing.Fixed).px else 0
+                n.h = (if (el.height is Sizing.Fixed) (el.height as Sizing.Fixed).px else 0) + extraH
                 n.contentH = n.h
             }
             is Container -> {
-                val padV = el.padding.vertical
                 n.contentH = if (el.dir == Dir.Column) {
-                    n.children.sumOf { it.h } + gapTotal(el.gap, n.children.size) + padV
+                    n.children.sumOf { it.h } + gapTotal(el.spacing, n.children.size) + extraH
                 } else {
-                    (n.children.maxOfOrNull { it.h } ?: 0) + padV
+                    (n.children.maxOfOrNull { it.h } ?: 0) + extraH
                 }
                 n.h = when (val hs = el.height) {
                     is Sizing.Fixed -> hs.px
@@ -191,7 +209,6 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         if (wrapped.size <= el.maxLines) return wrapped
         val kept = wrapped.take(el.maxLines).toMutableList()
         if (el.ellipsize && kept.isNotEmpty()) {
-            // Signal truncation by ellipsizing the remainder onto the last kept line.
             val remainder = wrapped.drop(el.maxLines - 1).joinToString(" ")
             kept[kept.lastIndex] = measurer.ellipsize(remainder, el.font, width)
         }
@@ -203,9 +220,10 @@ class LayoutSolver(private val measurer: TextMeasurer) {
     private fun growHeights(n: Node) {
         val el = n.el
         if (el !is Container) return
-        val contentH = (n.h - el.padding.vertical).coerceAtLeast(0)
+        val borderThick = el.border?.thickness ?: 0
+        val contentH = (n.h - el.margin.vertical - el.padding.vertical - 2 * borderThick).coerceAtLeast(0)
         if (el.dir == Dir.Column) {
-            val used = n.children.sumOf { it.h } + gapTotal(el.gap, n.children.size)
+            val used = n.children.sumOf { it.h } + gapTotal(el.spacing, n.children.size)
             val remaining = contentH - used
             if (remaining > 0) {
                 val grows = n.children.filter { it.height is Sizing.Grow }
@@ -237,37 +255,52 @@ class LayoutSolver(private val measurer: TextMeasurer) {
 
     private fun place(n: Node, x: Int, y: Int, clip: LRect?, out: MutableList<RenderCommand>) {
         val el = n.el
-        // The node's own box is NOT translated; translateY shifts only its children. This lets a
-        // clip+translate container hold a fixed clip region while its content slides within it.
         n.x = x
         n.y = y
 
-        // Own visuals.
+        val drawX = n.x + el.margin.left
+        val drawY = n.y + el.margin.top
+        val drawW = n.w - el.margin.horizontal
+        val drawH = n.h - el.margin.vertical
+
+        // Draw visuals.
+        if (drawW > 0 && drawH > 0) {
+            val rect = LRect.xywh(drawX, drawY, drawW, drawH)
+            el.background?.let { emit(RenderCommand.FillRect(rect, it), clip, out) }
+            el.border?.let { emit(RenderCommand.BorderRect(rect, it.color, it.thickness), clip, out) }
+        }
+
         when (el) {
-            is Container -> {
-                val rect = LRect.xywh(n.x, n.y, n.w, n.h)
-                el.fill?.let { emit(RenderCommand.FillRect(rect, it), clip, out) }
-                el.borderColor?.let { emit(RenderCommand.BorderRect(rect, it, el.borderThick), clip, out) }
+            is ImageEl -> {
+                val borderThick = el.border?.thickness ?: 0
+                val contentX = drawX + borderThick + el.padding.left
+                val contentY = drawY + borderThick + el.padding.top
+                val contentW = drawW - 2 * borderThick - el.padding.horizontal
+                val contentH = drawH - 2 * borderThick - el.padding.vertical
+                if (contentW > 0 && contentH > 0) {
+                    emit(RenderCommand.Image(contentX, contentY, contentW, contentH, el.key, el.payload), clip, out)
+                }
             }
-            is ImageEl -> emit(RenderCommand.Image(n.x, n.y, n.w, n.h, el.key, el.payload), clip, out)
             is TextEl -> emitText(n, el, clip, out)
-            is SpacerEl -> {}
+            is Container, is SpacerEl -> {}
         }
 
         if (el !is Container || n.children.isEmpty()) return
 
-        val box = LRect.xywh(n.x, n.y, n.w, n.h)
+        val box = LRect.xywh(drawX, drawY, drawW, drawH)
         val childClip = if (el.clip) (clip?.intersect(box) ?: box) else clip
-        val contentX = n.x + el.padding.left
-        val contentY = n.y + el.padding.top - el.scrollY + el.translateY
-        val contentW = (n.w - el.padding.horizontal).coerceAtLeast(0)
-        val contentH = (n.h - el.padding.vertical).coerceAtLeast(0)
-        val gaps = gapTotal(el.gap, n.children.size)
+
+        val borderThick = el.border?.thickness ?: 0
+        val contentX = drawX + borderThick + el.padding.left
+        val contentY = drawY + borderThick + el.padding.top - el.scrollY + el.translateY
+        val contentW = (drawW - 2 * borderThick - el.padding.horizontal).coerceAtLeast(0)
+        val contentH = (drawH - 2 * borderThick - el.padding.vertical).coerceAtLeast(0)
+        val gaps = gapTotal(el.spacing, n.children.size)
 
         if (el.dir == Dir.Column) {
             val usedMain = n.children.sumOf { it.h } + gaps
             var cy = contentY + leading(el.main, contentH - usedMain)
-            val between = el.gap + betweenExtra(el.main, contentH - usedMain, n.children.size)
+            val between = el.spacing + betweenExtra(el.main, contentH - usedMain, n.children.size)
             for (c in n.children) {
                 val cx = contentX + crossOffset(el.cross, contentW - c.w)
                 place(c, cx, cy, childClip, out)
@@ -276,7 +309,7 @@ class LayoutSolver(private val measurer: TextMeasurer) {
         } else {
             val usedMain = n.children.sumOf { it.w } + gaps
             var cx = contentX + leading(el.main, contentW - usedMain)
-            val between = el.gap + betweenExtra(el.main, contentW - usedMain, n.children.size)
+            val between = el.spacing + betweenExtra(el.main, contentW - usedMain, n.children.size)
             for (c in n.children) {
                 val cy = contentY + crossOffset(el.cross, contentH - c.h)
                 place(c, cx, cy, childClip, out)
@@ -288,14 +321,22 @@ class LayoutSolver(private val measurer: TextMeasurer) {
     private fun emitText(n: Node, el: TextEl, clip: LRect?, out: MutableList<RenderCommand>) {
         val cell = measurer.lineHeight(el.font)
         val pitch = measurer.linePitch(el.font)
+        val borderThick = el.border?.thickness ?: 0
+        val drawX = n.x + el.margin.left
+        val drawY = n.y + el.margin.top
+        val drawW = n.w - el.margin.horizontal
+        val contentX = drawX + borderThick + el.padding.left
+        val contentY = drawY + borderThick + el.padding.top
+        val contentW = (drawW - 2 * borderThick - el.padding.horizontal).coerceAtLeast(0)
+
         n.lines.forEachIndexed { i, line ->
             val lineW = measurer.measureWidth(line, el.font)
             val dx = when (el.align) {
                 TextAlign.Start -> 0
-                TextAlign.Center -> (n.w - lineW) / 2
-                TextAlign.End -> n.w - lineW
+                TextAlign.Center -> (contentW - lineW) / 2
+                TextAlign.End -> contentW - lineW
             }
-            val cmd = RenderCommand.Text(n.x + dx, n.y + i * pitch, line, el.font, el.color, lineW, cell)
+            val cmd = RenderCommand.Text(contentX + dx, contentY + i * pitch, line, el.font, el.color, lineW, cell)
             emit(cmd, clip, out)
         }
     }
@@ -303,8 +344,6 @@ class LayoutSolver(private val measurer: TextMeasurer) {
     private fun emit(cmd: RenderCommand, clip: LRect?, out: MutableList<RenderCommand>) {
         if (clip != null) {
             if (!cmd.bounds.intersects(clip)) return
-            // Hard top edge: never render above a clip region (e.g. content sliding up into the
-            // status bar). The top visible line sits exactly at clip.top, so it's kept.
             if (cmd.bounds.top < clip.top) return
         }
         out += cmd
