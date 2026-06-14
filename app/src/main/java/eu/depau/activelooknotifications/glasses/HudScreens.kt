@@ -139,43 +139,39 @@ object HudScreens {
             spacing = Const.LIST_GAP, translateY = yOffset,
             suppressImages = (yOffset != 0),
         ) {
-            notifListContent(rows, bullet)
-        }
-    }
-
-    private fun ChildrenScope.notifListContent(rows: List<ListRow>, bullet: Bitmap) {
-        for (r in rows) when (r) {
-            ListRow.Sep -> separator()
-            is ListRow.Header -> {
-                row(width = Fill, spacing = Const.LIST_HEADER_GAP, cross = CrossAlign.Center) {
-                    if (r.icon != null) this@notifListContent.image(
-                        key = "listicon",
-                        payload = r.icon,
-                        w = Const.LIST_ICON_SIZE,
-                        h = Const.LIST_ICON_SIZE
-                    )
-                    else this@notifListContent.spacer(
-                        width = Fixed(Const.LIST_ICON_SIZE),
-                        height = Fixed(Const.LIST_ICON_SIZE)
-                    )
-                    // App name takes the leftover width (Fill) so the time stays pinned at the right.
-                    this@notifListContent.text(
-                        r.appName,
-                        font = FontToken.Small,
-                        align = TextAlign.Start,
-                        width = Fill
-                    )
-                    this@notifListContent.text(
-                        r.time,
-                        font = FontToken.Small,
-                        align = TextAlign.End
-                    )
+            for (r in rows) when (r) {
+                ListRow.Sep -> separator()
+                is ListRow.Header -> {
+                    row(width = Fill, spacing = Const.LIST_HEADER_GAP, cross = CrossAlign.Center) {
+                        if (r.icon != null) image(
+                            payload = r.icon,
+                            w = Const.LIST_ICON_SIZE,
+                            h = Const.LIST_ICON_SIZE
+                        )
+                        else spacer(
+                            width = Fixed(Const.LIST_ICON_SIZE),
+                            height = Fixed(Const.LIST_ICON_SIZE)
+                        )
+                        // App name takes the leftover width (Fill) so the time stays pinned at the right.
+                        text(
+                            r.appName,
+                            font = FontToken.Small,
+                            align = TextAlign.Start,
+                            width = Fill
+                        )
+                        text(
+                            r.time,
+                            font = FontToken.Small,
+                            align = TextAlign.End
+                        )
+                    }
                 }
-            }
-            is ListRow.Line -> text(r.text, font = r.font, align = TextAlign.Start)
-            ListRow.Bullet -> {
-                centeredBullet(bullet)
-                spacer(height = Fixed(Const.LIST_GAP))
+
+                is ListRow.Line -> text(r.text, font = r.font, align = TextAlign.Start)
+                ListRow.Bullet -> {
+                    centeredBullet(bullet)
+                    spacer(height = Fixed(Const.LIST_GAP))
+                }
             }
         }
     }
@@ -207,7 +203,7 @@ object HudScreens {
             when (val r =
                 m.right) {                                            // right: signal / time
                 is StatusRight.Wifi ->
-                    image(key = r.key, payload = r.icon, w = m.fontPx, h = m.fontPx)
+                    image(payload = r.icon, w = m.fontPx, h = m.fontPx)
 
                 is StatusRight.Cellular -> row(
                     spacing = Const.STATUS_LABEL_GAP,
