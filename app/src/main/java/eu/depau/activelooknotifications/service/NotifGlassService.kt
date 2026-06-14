@@ -235,6 +235,9 @@ class NotifGlassService : Service() {
         scope.launch {
             NotifRepository.incoming.collect { controller.onNewNotification(it) }
         }
+        scope.launch {
+            NotifRepository.removals.collect { controller.onNotificationRemoved(it) }
+        }
     }
 
     // --- Public connection control (called by the UI) ---

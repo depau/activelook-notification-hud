@@ -18,6 +18,12 @@ object NotifRepository {
     )
     val incoming: SharedFlow<NotifItem> = _incoming
 
+    private val _removals = MutableSharedFlow<String>(
+        extraBufferCapacity = 16,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val removals: SharedFlow<String> = _removals
+
     /** The most recent notification, so an idle gesture can re-open it. */
     @Volatile
     var lastNotif: NotifItem? = null
@@ -34,5 +40,9 @@ object NotifRepository {
     fun publish(item: NotifItem) {
         lastNotif = item
         _incoming.tryEmit(item)
+    }
+
+    fun publishRemoval(key: String) {
+        _removals.tryEmit(key)
     }
 }

@@ -66,6 +66,7 @@ class DisplayController(
 
     private sealed interface Event {
         data class NewNotif(val item: NotifItem) : Event
+        data class NotifRemoved(val key: String) : Event
         data object Gesture : Event
         data class Timeout(val token: Long) : Event
         data object StatusUpdate : Event
@@ -94,6 +95,10 @@ class DisplayController(
         events.trySend(Event.NewNotif(item))
     }
 
+    fun onNotificationRemoved(key: String) {
+        events.trySend(Event.NotifRemoved(key))
+    }
+
     fun onGesture() {
         events.trySend(Event.Gesture)
     }
@@ -119,7 +124,29 @@ class DisplayController(
     private suspend fun runLoop() {
         for (event in events) {
             when (event) {
-                is Event.NewNotif -> transitionTo(DisplayState.AppPresent(event.item))
+                is Event.NewNotif -> {
+                    val currentState = _state.value
+                    if (currentState is DisplayState.AppPresent && currentState.notif.packageName == event.item.packageName) {
+                        transitionTo(DisplayState.AppPresent(event.item), animateIn = false)
+                    } else if (currentState is DisplayState.Peek && currentState.notif.packageName == event.item.packageName) {
+                        transitionTo(DisplayState.Peek(event.item), animateIn = false)
+                    } else {
+                        transitionTo(DisplayState.AppPresent(event.item), animateIn = true)
+                    }
+                }
+
+                is Event.NotifRemoved -> {
+                    val currentState = _state.value
+                    if (currentState is DisplayState.AppPresent && currentState.notif.key == event.key) {
+                        transitionTo(DisplayState.Idle)
+                    } else if (currentState is DisplayState.Peek && currentState.notif.key == event.key) {
+                        transitionTo(DisplayState.Idle)
+                    }
+                    if (currentState !is DisplayState.NotifList) {
+                        listItems = listItems.filter { it.key != event.key }
+                    }
+                    events.trySend(Event.StatusUpdate)
+                }
 
                 Event.Gesture -> handleGesture()
 
@@ -182,12 +209,12 @@ class DisplayController(
         }
     }
 
-    private suspend fun transitionTo(state: DisplayState) {
+    private suspend fun transitionTo(state: DisplayState, animateIn: Boolean = true) {
         timerJob?.cancel()
         timerToken++
         val token = timerToken
         _state.value = state
-        render(state)
+        render(state, animateIn = animateIn)
 
         val timeout = when (state) {
             is DisplayState.AppPresent -> appNameDurationMs

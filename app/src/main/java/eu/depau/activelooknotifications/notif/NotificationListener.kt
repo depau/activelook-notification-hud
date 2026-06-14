@@ -82,6 +82,17 @@ class NotificationListener : NotificationListenerService() {
         }
     }
 
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        try {
+            val key = sbn.key
+            if (key != null) {
+                NotifRepository.publishRemoval(key)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to handle notification removal", e)
+        }
+    }
+
     private fun handle(sbn: StatusBarNotification) {
         val item = mapToItem(sbn, Const.ICON_SIZE) ?: return
 
