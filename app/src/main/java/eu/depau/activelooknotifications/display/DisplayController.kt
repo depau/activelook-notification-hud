@@ -173,7 +173,7 @@ class DisplayController(
                 lastMinute = minute
                 events.trySend(Event.ClockTick)
             }
-            delay(Const.CLOCK_REFRESH_MS)
+            delay(Const.CLOCK_REFRESH_MS.milliseconds)
         }
     }
 
@@ -232,7 +232,7 @@ class DisplayController(
         }
         timerJob = timeout?.let {
             scope.launch {
-                delay(it)
+                delay(it.milliseconds)
                 events.trySend(Event.Timeout(token))
             }
         }
