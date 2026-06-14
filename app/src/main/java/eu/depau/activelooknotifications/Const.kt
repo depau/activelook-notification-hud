@@ -44,7 +44,7 @@ object Const {
 
     // Horizontal safe margin: the extreme left/right of the buffer is in overscan / outside the
     // reflector and not reliably visible, so keep content well inside. Tune per the debug border.
-    const val MARGIN_X = 24
+    const val MARGIN_X = 32
 
     // --- Logical layout (engine coords: origin top-left, x→right, y→down; flipped to device in the sink) ---
     // The top/bottom edges of the reflector are not reliably visible (like the left/right), so keep a
