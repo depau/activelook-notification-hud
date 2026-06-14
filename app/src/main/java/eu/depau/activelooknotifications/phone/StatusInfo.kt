@@ -7,7 +7,9 @@ enum class NetworkType(val label: String) {
     EDGE("E"),
     THREE_G("3G"),
     HSPA("H"),
+    HSPA_PLUS("H+"),
     LTE("LTE"),
+    LTE_PLUS("LTE+"),
     FIVE_G("5G"),
     WIFI("WiFi"),
 }
@@ -17,6 +19,8 @@ data class SignalInfo(
     val networkType: NetworkType,
     /** 0..4 bars. */
     val bars: Int,
+    val noInternet: Boolean = false,
+    val roaming: Boolean = false,
 )
 
 /** Everything the status bar needs, gathered from the phone + glasses. */

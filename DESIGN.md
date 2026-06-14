@@ -203,9 +203,9 @@ cell), other scripts via system fallback. LRU-cached (64 entries) keyed `run@fon
   **Caching is load-bearing**: an unchanged signal/battery level returns the *same* Bitmap instance
   so the differ skips the redraw.
 - `StatusBarModel`: a resolved-but-not-laid-out description handed to the screen builders, keeping
-  rasterization out of the layout DSL. `BatteryViz` carries a stable diff `key`. Signal bars are
-  drawn from solid primitives (thin outlines were unreadable on glasses); the "5G"/"LTE" label
-  carries the rest.
+  rasterization out of the layout DSL. `BatteryViz` carries a stable diff `key`. Signal strength
+  and network type are drawn as resolved Material Symbol icons (e.g. `signal_cellular_X_bar`,
+  `lte_mobiledata`).
 
 ### Screen builders (`HudScreens.kt`)
 

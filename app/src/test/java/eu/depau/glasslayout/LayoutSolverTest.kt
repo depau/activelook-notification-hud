@@ -294,4 +294,47 @@ class LayoutSolverTest {
         assertEquals(30, f[0].rect.height)
         assertEquals(70, f[1].rect.height)
     }
+
+    @Test fun testCellularStatusBarLayout() {
+        val root = column(width = Fixed(304), height = Fixed(256), padding = BoxInsets(24, 14, 24, 14)) {
+            row(width = Fill, main = MainAlign.SpaceBetween, cross = CrossAlign.Center) {
+                row(spacing = 10, cross = CrossAlign.Center) {
+                    row(spacing = 5, cross = CrossAlign.Center) {
+                        image("glasses_bat", 24, 24)
+                        text("70%", font = FontToken.Small)
+                    }
+                    row(spacing = 5, cross = CrossAlign.Center) {
+                        image("phone_bat", 24, 24)
+                        text("80%", font = FontToken.Small)
+                    }
+                }
+                row(spacing = 0, cross = CrossAlign.Center) {
+                    image("5g_icon", 24, 24)
+                    image("roaming_icon", 24, 24)
+                    image("signal_icon", 24, 24)
+                }
+            }
+        }
+        val cmds = solver.solve(root, LSize(304, 256))
+        val images = cmds.filterIsInstance<RenderCommand.Image>()
+        
+        // Find 5g_icon, roaming_icon, and signal_icon
+        val g5 = images.find { it.payload == "5g_icon" }
+        val roam = images.find { it.payload == "roaming_icon" }
+        val sig = images.find { it.payload == "signal_icon" }
+        
+        assertNotNull(g5)
+        assertNotNull(roam)
+        assertNotNull(sig)
+        
+        // Root has 24 padding right, so max x coordinate of any element should be 304 - 24 = 280
+        assertEquals(256, sig!!.x)
+        assertEquals(232, roam!!.x)
+        assertEquals(208, g5!!.x)
+        
+        assertEquals(280, sig.x + sig.w)
+        assertEquals(256, roam.x + roam.w)
+        assertEquals(232, g5.x + g5.w)
+    }
 }
+

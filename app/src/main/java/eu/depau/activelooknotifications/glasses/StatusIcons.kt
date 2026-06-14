@@ -13,6 +13,23 @@ import androidx.compose.material.icons.rounded.NetworkWifi3Bar
 import androidx.compose.material.icons.rounded.SignalWifi0Bar
 import androidx.compose.material.icons.rounded.SignalWifi4Bar
 import androidx.compose.material.icons.rounded.Smartphone
+import androidx.compose.material.icons.rounded.SignalCellular0Bar
+import androidx.compose.material.icons.rounded.SignalCellular4Bar
+import androidx.compose.material.icons.rounded.SignalCellularAlt
+import androidx.compose.material.icons.rounded.SignalCellularAlt1Bar
+import androidx.compose.material.icons.rounded.SignalCellularAlt2Bar
+import androidx.compose.material.icons.rounded.SignalCellularConnectedNoInternet0Bar
+import androidx.compose.material.icons.rounded.SignalCellularConnectedNoInternet4Bar
+import androidx.compose.material.icons.rounded._5g
+import androidx.compose.material.icons.rounded.LteMobiledata
+import androidx.compose.material.icons.rounded.LtePlusMobiledata
+import androidx.compose.material.icons.rounded._3gMobiledata
+import androidx.compose.material.icons.rounded.EMobiledata
+import androidx.compose.material.icons.rounded.GMobiledata
+import androidx.compose.material.icons.rounded.HMobiledata
+import androidx.compose.material.icons.rounded.HPlusMobiledata
+import androidx.compose.material.icons.rounded.RMobiledata
+import eu.depau.activelooknotifications.phone.NetworkType
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathParser
@@ -36,6 +53,8 @@ class StatusIcons {
 
     fun bluetooth(px: Int): Bitmap = get("bt", px) { Icons.Rounded.Bluetooth }
 
+    fun roaming(px: Int): Bitmap = get("roaming", px) { Icons.Rounded.RMobiledata }
+
     fun wifi(level: Int, px: Int): Bitmap = get("wifi$level", px) {
         when (level.coerceIn(0, 4)) {
             0 -> Icons.Rounded.SignalWifi0Bar
@@ -43,6 +62,40 @@ class StatusIcons {
             2 -> Icons.Rounded.NetworkWifi2Bar
             3 -> Icons.Rounded.NetworkWifi3Bar
             else -> Icons.Rounded.SignalWifi4Bar
+        }
+    }
+
+    fun cellularType(type: NetworkType, px: Int): Bitmap = get("celltype_${type.name}", px) {
+        when (type) {
+            NetworkType.GPRS -> Icons.Rounded.GMobiledata
+            NetworkType.EDGE -> Icons.Rounded.EMobiledata
+            NetworkType.THREE_G -> Icons.Rounded._3gMobiledata
+            NetworkType.HSPA -> Icons.Rounded.HMobiledata
+            NetworkType.HSPA_PLUS -> Icons.Rounded.HPlusMobiledata
+            NetworkType.LTE -> Icons.Rounded.LteMobiledata
+            NetworkType.LTE_PLUS -> Icons.Rounded.LtePlusMobiledata
+            NetworkType.FIVE_G -> Icons.Rounded._5g
+            else -> Icons.Rounded.GMobiledata
+        }
+    }
+
+    fun cellularSignal(level: Int, noInternet: Boolean, px: Int): Bitmap {
+        val key = if (noInternet) "cellsig_noinet_$level" else "cellsig_$level"
+        return get(key, px) {
+            if (noInternet) {
+                when (level.coerceIn(0, 4)) {
+                    0 -> Icons.Rounded.SignalCellularConnectedNoInternet0Bar
+                    else -> Icons.Rounded.SignalCellularConnectedNoInternet4Bar
+                }
+            } else {
+                when (level.coerceIn(0, 4)) {
+                    0 -> Icons.Rounded.SignalCellular0Bar
+                    1 -> Icons.Rounded.SignalCellularAlt1Bar
+                    2 -> Icons.Rounded.SignalCellularAlt2Bar
+                    3 -> Icons.Rounded.SignalCellularAlt
+                    else -> Icons.Rounded.SignalCellular4Bar
+                }
+            }
         }
     }
 

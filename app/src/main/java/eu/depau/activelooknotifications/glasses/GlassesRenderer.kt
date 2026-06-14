@@ -150,8 +150,15 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
                 sig.networkType == NetworkType.WIFI ->
                     StatusRight.Wifi("wifi${sig.bars}", statusIcons.wifi(sig.bars, px))
 
-                else ->
-                    StatusRight.Cellular(sig.bars, sig.networkType.label)
+                else -> {
+                    val roamingIcon = if (sig.roaming) statusIcons.roaming(px) else null
+                    StatusRight.Cellular(
+                        key = "cellular-${sig.bars}-${sig.networkType}-${sig.noInternet}-${sig.roaming}",
+                        typeIcon = statusIcons.cellularType(sig.networkType, px),
+                        roamingIcon = roamingIcon,
+                        signalIcon = statusIcons.cellularSignal(sig.bars, sig.noInternet, px)
+                    )
+                }
             }
         }
         return StatusBarModel(glasses, phone, right, px)

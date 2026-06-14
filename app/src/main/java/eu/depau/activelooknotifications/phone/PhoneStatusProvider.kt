@@ -156,10 +156,38 @@ class PhoneStatusProvider(
                 NetworkType.WIFI,
                 wifiBars.coerceIn(0, 4)
             ) // no phone-state perm needed
-            hasPhoneStatePermission() -> SignalInfo(currentNetworkType(), bars.coerceIn(0, 4))
+            hasPhoneStatePermission() -> {
+                val netType = currentNetworkType()
+                val noNet = isCellularConnectedNoInternet()
+                val roaming = isRoaming()
+                SignalInfo(netType, bars.coerceIn(0, 4), noNet, roaming)
+            }
             else -> null
         }
         emit()
+    }
+
+    private fun isRoaming(): Boolean {
+        return runCatching {
+            telephony?.isNetworkRoaming ?: false
+        }.getOrDefault(false)
+    }
+
+    private fun isCellularConnectedNoInternet(): Boolean {
+        try {
+            val cm = connectivity ?: return false
+            val active = cm.activeNetwork
+            if (active == null) {
+                return true
+            }
+            val caps = cm.getNetworkCapabilities(active) ?: return true
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                return !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            }
+        } catch (e: Exception) {
+            // fallback
+        }
+        return false
     }
 
     /** Map a WiFi network's RSSI (API 29+) to 0..4 bars; full when unknown or pre-Q. */
@@ -175,7 +203,13 @@ class PhoneStatusProvider(
 
     private fun currentNetworkType(): NetworkType {
         if (isWifiActive()) return NetworkType.WIFI
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && isNrOverride(overrideType)) return NetworkType.FIVE_G
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (isNrOverride(overrideType)) return NetworkType.FIVE_G
+            if (overrideType == TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_LTE_CA ||
+                overrideType == TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_LTE_ADVANCED_PRO) {
+                return NetworkType.LTE_PLUS
+            }
+        }
         val type = runCatching {
             @Suppress("DEPRECATION")
             telephony?.dataNetworkType ?: TelephonyManager.NETWORK_TYPE_UNKNOWN
@@ -183,10 +217,11 @@ class PhoneStatusProvider(
         return when (type) {
             TelephonyManager.NETWORK_TYPE_NR -> NetworkType.FIVE_G
             TelephonyManager.NETWORK_TYPE_LTE -> NetworkType.LTE
+
             TelephonyManager.NETWORK_TYPE_HSPA,
             TelephonyManager.NETWORK_TYPE_HSDPA,
-            TelephonyManager.NETWORK_TYPE_HSUPA,
-            TelephonyManager.NETWORK_TYPE_HSPAP -> NetworkType.HSPA
+            TelephonyManager.NETWORK_TYPE_HSUPA -> NetworkType.HSPA
+            TelephonyManager.NETWORK_TYPE_HSPAP -> NetworkType.HSPA_PLUS
 
             TelephonyManager.NETWORK_TYPE_UMTS,
             TelephonyManager.NETWORK_TYPE_EVDO_0,

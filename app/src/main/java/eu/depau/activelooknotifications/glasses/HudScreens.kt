@@ -252,11 +252,12 @@ object HudScreens {
                     image(payload = r.icon, w = m.fontPx, h = m.fontPx)
 
                 is StatusRight.Cellular -> row(
-                    spacing = Const.STATUS_LABEL_GAP,
+                    spacing = 0,
                     cross = CrossAlign.Center
                 ) {
-                    text(r.typeLabel, font = FontToken.Small)
-                    signalBars(r.level, m.fontPx)
+                    image(payload = r.typeIcon, w = m.fontPx, h = m.fontPx)
+                    r.roamingIcon?.let { image(payload = it, w = m.fontPx, h = m.fontPx) }
+                    image(payload = r.signalIcon, w = m.fontPx, h = m.fontPx)
                 }
 
                 is StatusRight.Time -> text(r.text, font = FontToken.Small, align = TextAlign.End)
@@ -269,24 +270,6 @@ object HudScreens {
         row(spacing = Const.STATUS_PCT_GAP, cross = CrossAlign.Center) {
             image(payload = b.bitmap, w = fontPx, h = fontPx)
             if (b.percent.isNotEmpty()) text(b.percent, font = FontToken.Small)
-        }
-    }
-
-    /**
-     * Cellular signal as chunky solid ascending bars (thin outlines were unreadable on the glasses):
-     * only the active [level] bars are drawn, each a bold solid block of increasing height,
-     * bottom-aligned. [level] in 0..4. The "5G"/"LTE" label beside it conveys the rest.
-     */
-    private fun ChildrenScope.signalBars(level: Int, fontPx: Int) {
-        val white = Const.COLOR_WHITE.toInt()
-        val barW = (fontPx * 0.22f).roundToInt().coerceAtLeast(4)
-        val spacing = (fontPx * 0.13f).roundToInt().coerceAtLeast(2)
-        val maxH = fontPx
-        row(height = Fixed(maxH), spacing = spacing, cross = CrossAlign.End) {
-            for (i in 0 until level.coerceIn(0, 4)) {
-                val barH = (maxH * (0.4f + 0.6f * (i + 1) / 4f)).roundToInt().coerceAtLeast(4)
-                box(width = Fixed(barW), height = Fixed(barH), background = white)
-            }
         }
     }
 }

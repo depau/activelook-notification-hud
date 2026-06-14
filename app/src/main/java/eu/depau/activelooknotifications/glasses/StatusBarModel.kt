@@ -26,8 +26,8 @@ sealed interface StatusRight {
     /** WiFi icon by level (rasterized Material Symbol). [key] is a level-stable diff key. */
     data class Wifi(val key: String, val icon: Bitmap) : StatusRight
 
-    /** Cellular: ascending signal bars (drawn from primitives) by [level] 0..4 + a "5G"/"LTE" label. */
-    data class Cellular(val level: Int, val typeLabel: String) : StatusRight
+    /** Cellular: signal, network type, and optional roaming icons resolved from Material Symbols. [key] is a stable diff key. */
+    data class Cellular(val key: String, val typeIcon: Bitmap, val roamingIcon: Bitmap?, val signalIcon: Bitmap) : StatusRight
     data class Time(val text: String) : StatusRight
     data object None : StatusRight
 }
