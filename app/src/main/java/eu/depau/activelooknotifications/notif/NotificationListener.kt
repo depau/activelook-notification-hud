@@ -94,7 +94,7 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun handle(sbn: StatusBarNotification) {
-        val item = mapToItem(sbn, Const.ICON_SIZE) ?: return
+        val item = mapToItem(sbn) ?: return
 
         // Dedup: ignore an identical re-post of the same key within the window.
         val contentHash = (31 * item.title.hashCode()) + item.body.hashCode()
@@ -121,7 +121,7 @@ class NotificationListener : NotificationListenerService() {
             return emptyList()
         } ?: return emptyList()
         return active.asSequence()
-            .mapNotNull { runCatching { mapToItem(it, Const.LIST_ICON_SIZE) }.getOrNull() }
+            .mapNotNull { runCatching { mapToItem(it) }.getOrNull() }
             .sortedByDescending { it.postTime }
             .take(Const.LIST_MAX_NOTIFS)
             .toList()
@@ -130,10 +130,9 @@ class NotificationListener : NotificationListenerService() {
     /**
      * Map a [StatusBarNotification] to a [NotifItem], applying the allow/deny + group-summary/ongoing
      * filters and title/body/icon extraction shared by the live (peek) and snapshot (list) paths.
-     * [iconSize] selects which rasterized icon is populated ([Const.ICON_SIZE] splash vs
-     * [Const.LIST_ICON_SIZE] header). Returns null if the notification should be dropped.
+     * Returns null if the notification should be dropped.
      */
-    private fun mapToItem(sbn: StatusBarNotification, iconSize: Int): NotifItem? {
+    private fun mapToItem(sbn: StatusBarNotification): NotifItem? {
         val pkg = sbn.packageName ?: return null
         if (pkg == packageName) return null
         // Allowlist: show only listed apps. Denylist: show everything except listed apps.
@@ -162,7 +161,8 @@ class NotificationListener : NotificationListenerService() {
         if (title.isEmpty() && body.isEmpty()) return null
 
         val appName = appLabel(pkg)
-        val icon = resolveIcon(pkg, notification, iconSize)
+        val icon48 = resolveIcon(pkg, notification, Const.ICON_SIZE)
+        val icon24 = resolveIcon(pkg, notification, Const.LIST_ICON_SIZE)
         return NotifItem(
             key = sbn.key ?: pkg,
             packageName = pkg,
@@ -170,8 +170,8 @@ class NotificationListener : NotificationListenerService() {
             title = title.ifEmpty { appName },
             body = body,
             postTime = sbn.postTime,
-            iconBitmap = if (iconSize == Const.ICON_SIZE) icon else null,
-            listIconBitmap = if (iconSize == Const.LIST_ICON_SIZE) icon else null,
+            iconBitmap = icon48,
+            listIconBitmap = icon24,
         )
     }
 
