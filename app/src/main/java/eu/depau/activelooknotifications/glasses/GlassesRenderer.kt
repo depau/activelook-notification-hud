@@ -19,14 +19,10 @@ import eu.depau.glasslayout.core.layout.LayoutSolver
 import eu.depau.glasslayout.core.model.Element
 import eu.depau.glasslayout.core.model.FontToken
 import eu.depau.glasslayout.core.render.RenderCommand
-import eu.depau.glasslayout.core.text.TextSpan
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Façade over the glasslayout engine. Keeps the imperative API the [eu.depau.activelooknotifications.display.DisplayController]
- * already calls (`renderIdle/AppPresent/Peek/Open`, `wrapBody`, `visibleBodyLines`, `setFonts`,
+ * already calls (`renderIdle/AppPresent/Peek/NotifList`, `setFonts`,
  * `setBrightness`, `showIcon`, `debugBorder`, `glasses`, `clearScreen`). Internally each render builds
  * a core [Element] tree, solves it, and presents it through the partial-redraw [ActiveLookSink].
  */
@@ -121,11 +117,10 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
         contentYOffset: Int = 0,
         onPageCountResolved: (Int) -> Unit
     ) {
-        val rows = buildListRows(items)
         present(
             HudScreens.notifList(
                 statusModel(status, idle = false),
-                rows,
+                items,
                 statusIcons.bullet(Const.BULLET_SIZE),
                 page,
                 contentYOffset,
@@ -162,36 +157,6 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
     }
 
     private fun fontPx(font: FontToken): Int = fonts.resolve(font).heightPx
-
-    // --- Notification list: row construction + pagination height math ---
-
-    private val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-
-    private fun listContentWidth(): Int = Const.SCREEN_W - 2 * Const.MARGIN_X
-
-    /** Pre-shape the whole list into [ListRow]s (heights become deterministic for pagination). */
-    private fun buildListRows(items: List<NotifItem>): List<ListRow> {
-        val w = listContentWidth()
-        val rows = ArrayList<ListRow>()
-        rows += ListRow.Sep
-        for (it in items) {
-            val time = timeFmt.format(Date(it.postTime))
-            rows += ListRow.Header(it.listIconBitmap, it.appName, time)
-            val titleLines = measurer.wrap(it.title, FontToken.Small, w).take(Const.LIST_MAX_TITLE_LINES)
-            for (line in titleLines) {
-                rows += ListRow.Line(line, FontToken.Small)
-            }
-            val bodyLines = measurer.wrap(it.sanitizedBody, FontToken.Small, w).take(Const.LIST_MAX_BODY_LINES)
-            for (line in bodyLines) {
-                rows += ListRow.Line(line, FontToken.Small)
-            }
-            rows += ListRow.Sep
-        }
-        rows += ListRow.Bullet
-        return rows
-    }
-
-
 
     private fun present(root: Element) {
         var cmds = solver.solve(root, LSize(Const.SCREEN_W, Const.SCREEN_H))

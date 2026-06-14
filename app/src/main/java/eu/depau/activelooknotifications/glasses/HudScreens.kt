@@ -2,6 +2,7 @@ package eu.depau.activelooknotifications.glasses
 
 import android.graphics.Bitmap
 import eu.depau.activelooknotifications.Const
+import eu.depau.activelooknotifications.display.NotifItem
 import eu.depau.glasslayout.core.dsl.ChildrenScope
 import eu.depau.glasslayout.core.dsl.Fill
 import eu.depau.glasslayout.core.dsl.Fixed
@@ -13,6 +14,9 @@ import eu.depau.glasslayout.core.model.MainAlign
 import eu.depau.glasslayout.core.model.BoxInsets
 import eu.depau.glasslayout.core.model.TextAlign
 import eu.depau.glasslayout.core.model.ScrollOffset
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -27,6 +31,8 @@ object HudScreens {
     private const val H = Const.SCREEN_H
     private val rootPadding =
         BoxInsets(Const.MARGIN_X, Const.TOP_MARGIN, Const.MARGIN_X, Const.BOTTOM_MARGIN)
+
+    private val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
 
     fun idle(
         status: StatusBarModel,
@@ -57,7 +63,7 @@ object HudScreens {
 
     fun appPresent(
         status: StatusBarModel,
-        name: String,
+        appName: String,
         icon: Bitmap?,
         yOffset: Int
     ): Element =
@@ -73,12 +79,12 @@ object HudScreens {
                 spacing = Const.ICON_NAME_GAP, clip = true, translateY = yOffset,
                 suppressImages = (yOffset != 0),
             ) {
-                if (icon != null) image(
-                    payload = icon,
-                    w = Const.ICON_SIZE,
-                    h = Const.ICON_SIZE
-                )
-                text(name, font = FontToken.Medium, align = TextAlign.Center)
+                if (icon != null) {
+                    image(payload = icon, w = 48, h = 48)
+                } else {
+                    spacer(width = Fixed(48), height = Fixed(48))
+                }
+                text(appName, font = FontToken.Medium, align = TextAlign.Center)
             }
         }
 
@@ -108,7 +114,7 @@ object HudScreens {
     /** Gesture-opened, paginated list of currently-posted notifications. */
     fun notifList(
         status: StatusBarModel,
-        rows: List<ListRow>,
+        items: List<NotifItem>,
         bullet: Bitmap,
         pageIndex: Int,
         yOffset: Int,
@@ -139,40 +145,58 @@ object HudScreens {
             spacing = Const.LIST_GAP, translateY = yOffset,
             suppressImages = (yOffset != 0),
         ) {
-            for (r in rows) when (r) {
-                ListRow.Sep -> separator()
-                is ListRow.Header -> {
-                    row(width = Fill, spacing = Const.LIST_HEADER_GAP, cross = CrossAlign.Center) {
-                        if (r.icon != null) image(
-                            payload = r.icon,
+            separator()
+            for (it in items) {
+                val time = timeFmt.format(Date(it.postTime))
+                row(width = Fill, spacing = Const.LIST_HEADER_GAP, cross = CrossAlign.Center) {
+                    if (it.listIconBitmap != null) {
+                        image(
+                            payload = it.listIconBitmap,
                             w = Const.LIST_ICON_SIZE,
                             h = Const.LIST_ICON_SIZE
                         )
-                        else spacer(
+                    } else {
+                        spacer(
                             width = Fixed(Const.LIST_ICON_SIZE),
                             height = Fixed(Const.LIST_ICON_SIZE)
                         )
-                        // App name takes the leftover width (Fill) so the time stays pinned at the right.
-                        text(
-                            r.appName,
-                            font = FontToken.Small,
-                            align = TextAlign.Start,
-                            width = Fill
-                        )
-                        text(
-                            r.time,
-                            font = FontToken.Small,
-                            align = TextAlign.End
-                        )
                     }
+                    // App name takes the leftover width (Fill) so the time stays pinned at the right.
+                    text(
+                        it.appName,
+                        font = FontToken.Small,
+                        align = TextAlign.Start,
+                        width = Fill
+                    )
+                    text(
+                        time,
+                        font = FontToken.Small,
+                        align = TextAlign.End
+                    )
                 }
 
-                is ListRow.Line -> text(r.text, font = r.font, align = TextAlign.Start)
-                ListRow.Bullet -> {
-                    centeredBullet(bullet)
-                    spacer(height = Fixed(Const.LIST_GAP))
+                if (it.title.isNotEmpty()) {
+                    text(
+                        it.title,
+                        font = FontToken.Small,
+                        align = TextAlign.Start,
+                        wrap = true,
+                        maxLines = Const.LIST_MAX_TITLE_LINES
+                    )
                 }
+                if (it.sanitizedBody.isNotEmpty()) {
+                    text(
+                        it.sanitizedBody,
+                        font = FontToken.Small,
+                        align = TextAlign.Start,
+                        wrap = true,
+                        maxLines = Const.LIST_MAX_BODY_LINES
+                    )
+                }
+                separator()
             }
+            centeredBullet(bullet)
+            spacer(height = Fixed(Const.LIST_GAP))
         }
     }
 

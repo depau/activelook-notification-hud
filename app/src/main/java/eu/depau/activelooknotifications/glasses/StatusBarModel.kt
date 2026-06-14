@@ -1,8 +1,6 @@
 package eu.depau.activelooknotifications.glasses
 
 import android.graphics.Bitmap
-import eu.depau.glasslayout.core.model.FontToken
-import eu.depau.glasslayout.core.text.TextSpan
 
 /**
  * What the HUD status bar should draw, resolved by [GlassesRenderer] from a
@@ -34,20 +32,3 @@ sealed interface StatusRight {
     data object None : StatusRight
 }
 
-/**
- * One row in the gesture-opened notification list, pre-shaped by [GlassesRenderer] so [HudScreens]
- * only lays it out and the renderer's pagination height math can mirror the layout exactly.
- */
-sealed interface ListRow {
-    /** Full-width horizontal separator line. */
-    data object Sep : ListRow
-
-    /** `[icon] appName - HH:mm` header (Small font). [icon] is null if unavailable. */
-    data class Header(val icon: Bitmap?, val appName: String, val time: String) : ListRow
-
-    /** One wrapped title (Medium) or body (Small) line. */
-    data class Line(val text: String, val font: FontToken) : ListRow
-
-    /** Centered filled circle marking the end of the list. */
-    data object Bullet : ListRow
-}
