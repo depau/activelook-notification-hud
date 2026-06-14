@@ -125,9 +125,17 @@ object HudScreens {
             width = Fill, height = Fill, clip = true,
             scrollY = ScrollOffset.Dynamic { solved ->
                 val pageHeight = solved.height
-                val pageCount = ((solved.contentHeight + pageHeight - 1) / pageHeight).coerceAtLeast(1)
+                val rawPageCount = ((solved.contentHeight + pageHeight - 1) / pageHeight).coerceAtLeast(1)
+                val overflow = solved.contentHeight - (rawPageCount - 1) * pageHeight
+                val pageCount = if (rawPageCount >= 2 && overflow <= 40) {
+                    rawPageCount - 1
+                } else {
+                    rawPageCount
+                }
                 onPageCountResolved(pageCount)
-                pageIndex * pageHeight
+                val standardScroll = pageIndex * pageHeight
+                val maxScroll = (solved.contentHeight - pageHeight).coerceAtLeast(0)
+                minOf(standardScroll, maxScroll)
             },
             spacing = Const.LIST_GAP, translateY = yOffset,
             suppressImages = (yOffset != 0),
@@ -141,7 +149,10 @@ object HudScreens {
             ListRow.Sep -> separator()
             is ListRow.Header -> headerRow(r.icon, r.appName, r.time)
             is ListRow.Line -> text(r.text, font = r.font, align = TextAlign.Start)
-            ListRow.Bullet -> centeredBullet(bullet)
+            ListRow.Bullet -> {
+                centeredBullet(bullet)
+                spacer(height = Fixed(Const.LIST_GAP))
+            }
         }
     }
 
