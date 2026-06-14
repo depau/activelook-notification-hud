@@ -71,6 +71,7 @@ fun SettingsScreen(
     val autoConnect by settings.autoConnect.collectAsState(initial = true)
     val als by settings.ambientLightSensor.collectAsState(initial = true)
     val debugBorder by settings.debugScreenBorder.collectAsState(initial = false)
+    val hideMinimized by settings.hideMinimized.collectAsState(initial = false)
 
     val context = LocalContext.current
     val versionName = remember {
@@ -145,6 +146,12 @@ fun SettingsScreen(
             }
             SwitchRow("Animate transitions", "Slide between screens on the glasses", animate) {
                 coroutineScope.launch { settings.setAnimateTransitions(it) }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+            SectionTitle("Notifications")
+            SwitchRow("Hide minimized notifications", "Do not mirror notifications with minimized or low importance", hideMinimized) {
+                coroutineScope.launch { settings.setHideMinimized(it) }
             }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))

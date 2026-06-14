@@ -1,8 +1,11 @@
 package eu.depau.activelooknotifications.notif
 
 import android.app.Notification
+import android.app.NotificationManager
 import android.graphics.Bitmap
+import android.os.Build
 import android.service.notification.NotificationListenerService
+import android.service.notification.NotificationListenerService.Ranking
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import eu.depau.activelooknotifications.Const
@@ -33,6 +36,9 @@ class NotificationListener : NotificationListenerService() {
     @Volatile
     private var denylistMode: Boolean = false
 
+    @Volatile
+    private var hideMinimized: Boolean = false
+
     // Tiny dedup memory: key -> (contentHash, timestamp).
     private val recent = HashMap<String, Pair<Int, Long>>()
 
@@ -47,6 +53,9 @@ class NotificationListener : NotificationListenerService() {
         }
         scope.launch {
             settings.denylistMode.collect { denylistMode = it }
+        }
+        scope.launch {
+            settings.hideMinimized.collect { hideMinimized = it }
         }
     }
 
@@ -124,6 +133,18 @@ class NotificationListener : NotificationListenerService() {
         val flags = notification.flags
         if (flags and Notification.FLAG_GROUP_SUMMARY != 0) return null
         if (!Const.SHOW_ONGOING && flags and Notification.FLAG_ONGOING_EVENT != 0) return null
+
+        if (hideMinimized) {
+            val ranking = Ranking()
+            val rankingMap = currentRanking
+            if (rankingMap != null && rankingMap.getRanking(sbn.key, ranking)) {
+                if (ranking.importance <= NotificationManager.IMPORTANCE_MIN ||
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && ranking.isAmbient)
+                ) {
+                    return null
+                }
+            }
+        }
 
         val title = notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
         val body = extractBody(notification).trim()

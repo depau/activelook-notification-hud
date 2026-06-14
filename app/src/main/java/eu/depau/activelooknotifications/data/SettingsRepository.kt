@@ -40,6 +40,7 @@ class SettingsRepository(private val context: Context) {
     val animateTransitions: Flow<Boolean> = ds.data.map { it[KEY_ANIMATE] ?: Const.ANIMATE_TRANSITIONS }
     val autoConnect: Flow<Boolean> = ds.data.map { it[KEY_AUTO_CONNECT] ?: true }
     val debugScreenBorder: Flow<Boolean> = ds.data.map { it[KEY_DEBUG_BORDER] ?: false }
+    val hideMinimized: Flow<Boolean> = ds.data.map { it[KEY_HIDE_MINIMIZED] ?: true }
 
     /** Glasses configuration to activate on connect (cfgSet). "ALooK" is the documented default. */
     val glassesConfig: Flow<String> = ds.data.map { it[KEY_GLASSES_CONFIG] ?: "ALooK" }
@@ -68,6 +69,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setGlassesConfig(value: String) = ds.edit { it[KEY_GLASSES_CONFIG] = value }
     suspend fun setDebugPreview(value: Boolean) = ds.edit { it[KEY_DEBUG_PREVIEW] = value }
     suspend fun setSerializedGlasses(value: String) = ds.edit { it[KEY_SERIALIZED_GLASSES] = value }
+    suspend fun setHideMinimized(value: Boolean) = ds.edit { it[KEY_HIDE_MINIMIZED] = value }
 
     companion object {
         private val KEY_ALLOWED = stringSetPreferencesKey("allowed_packages")
@@ -84,5 +86,6 @@ class SettingsRepository(private val context: Context) {
         private val KEY_GLASSES_CONFIG = stringPreferencesKey("glasses_config")
         private val KEY_DEBUG_PREVIEW = booleanPreferencesKey("debug_preview")
         private val KEY_SERIALIZED_GLASSES = stringPreferencesKey("serialized_glasses")
+        private val KEY_HIDE_MINIMIZED = booleanPreferencesKey("hide_minimized")
     }
 }
