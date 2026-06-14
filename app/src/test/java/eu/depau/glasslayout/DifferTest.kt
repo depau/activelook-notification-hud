@@ -67,4 +67,9 @@ class DifferTest {
         // FillRect (z=0) must come before Text (z=4).
         assertTrue(plan.draw.indexOf(fill) < plan.draw.indexOf(text))
     }
+
+    @Test fun imageBoundsShifted() {
+        val img = RenderCommand.Image(10, 20, 30, 40, "payload")
+        assertEquals(LRect(10, 22, 40, 62), img.bounds)
+    }
 }

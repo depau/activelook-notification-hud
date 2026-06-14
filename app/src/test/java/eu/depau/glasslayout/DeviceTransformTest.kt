@@ -28,8 +28,9 @@ class DeviceTransformTest {
 
     @Test fun imageAnchorIsBottomRightCorner() {
         // Centered 48px icon → logical left 128; image device anchor x = 304-(128+48) = 128.
+        // Y coordinate is adjusted down by 2 pixels physically: 256 - (100 + 48) - 2.
         val a = t.imageAnchor(128, 100, 48, 48)
         assertEquals(128.toShort(), a.x)
-        assertEquals((256 - (100 + 48)).toShort(), a.y)
+        assertEquals((256 - (100 + 48) - 2).toShort(), a.y)
     }
 }

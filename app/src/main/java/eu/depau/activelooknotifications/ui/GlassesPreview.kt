@@ -66,7 +66,12 @@ fun GlassesPreview(commands: List<RenderCommand>, modifier: Modifier = Modifier)
                         val bmp = cmd.payload as? Bitmap ?: continue
                         paint.reset()
                         paint.colorFilter = PorterDuffColorFilter(yellow(15), PorterDuff.Mode.MULTIPLY)
-                        val dst = Rect((cmd.x * sx).toInt(), (cmd.y * sy).toInt(), ((cmd.x + cmd.w) * sx).toInt(), ((cmd.y + cmd.h) * sy).toInt())
+                        val dst = Rect(
+                            (cmd.x * sx).toInt(),
+                            ((cmd.y + 2) * sy).toInt(),
+                            ((cmd.x + cmd.w) * sx).toInt(),
+                            ((cmd.y + cmd.h + 2) * sy).toInt()
+                        )
                         nc.drawBitmap(bmp, null, dst, paint)
                     }
                     is RenderCommand.Text -> {

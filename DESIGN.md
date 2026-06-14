@@ -88,8 +88,8 @@ logicalY`. **Each primitive anchors a different corner** because the SDK does:
 - **Text** (`txt`, `TOP_LR`): anchors glyph row's top-left → maps logical top-left directly; glyphs
   hang downward.
 - **Image** (`imgStream`/`imgDisplay`): anchors the device low corner → must map the logical
-  **bottom-right** corner (`screenW−(x+w)`, `screenH−(y+h)`). Verified against the old renderer (a
-  centered icon stays centered).
+  **bottom-right** corner (`screenW−(x+w)`, `screenH−(y+h) - 2`). The 2-pixel physical offset
+  compensates for baseline alignment discrepancies, lowering all drawn icons to match the text.
 - **Rects/lines**: flip every corner, then normalize so x0≤x1, y0≤y1.
 
 There is no safe-area math here — the safe margin is baked into the logical layout as padding

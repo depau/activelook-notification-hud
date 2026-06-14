@@ -26,7 +26,7 @@ class DeviceTransform(private val screenW: Int, private val screenH: Int) {
 
     /** Device anchor for an Image (logical bottom-right → device low-x/low-y corner). */
     fun imageAnchor(logicalX: Int, logicalY: Int, w: Int, h: Int): P =
-        P((screenW - (logicalX + w)).toShort(), (screenH - (logicalY + h)).toShort())
+        P((screenW - (logicalX + w)).toShort(), (screenH - (logicalY + h) - 2).toShort())
 
     fun point(logicalX: Int, logicalY: Int): P =
         P((screenW - logicalX).toShort(), (screenH - logicalY).toShort())
