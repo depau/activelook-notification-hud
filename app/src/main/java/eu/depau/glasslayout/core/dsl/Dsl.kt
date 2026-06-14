@@ -13,6 +13,7 @@ import eu.depau.glasslayout.core.model.Sizing
 import eu.depau.glasslayout.core.model.SpacerEl
 import eu.depau.glasslayout.core.model.TextAlign
 import eu.depau.glasslayout.core.model.TextEl
+import eu.depau.glasslayout.core.model.ScrollOffset
 
 /** Sizing conveniences so the DSL reads naturally (`width = Fill`, `height = Grow`, `Fixed(40)`). */
 val Fit: Sizing = Sizing.Fit
@@ -21,6 +22,8 @@ val Grow: Sizing = Sizing.Grow(1)
 fun Fixed(px: Int): Sizing = Sizing.Fixed(px)
 fun grow(weight: Int): Sizing = Sizing.Grow(weight)
 fun Percent(frac: Float): Sizing = Sizing.Percent(frac)
+fun ScrollOffset(px: Int): ScrollOffset = ScrollOffset.Fixed(px)
+
 
 @DslMarker
 annotation class GlassLayoutDsl
@@ -41,7 +44,7 @@ class ChildrenScope {
         background: Int? = null,
         border: Border? = null,
         clip: Boolean = false,
-        scrollY: Int = 0,
+        scrollY: ScrollOffset = ScrollOffset.Zero,
         translateY: Int = 0,
         margin: BoxInsets = BoxInsets.NONE,
         suppressImages: Boolean = false,
@@ -63,7 +66,7 @@ class ChildrenScope {
         background: Int? = null,
         border: Border? = null,
         clip: Boolean = false,
-        scrollY: Int = 0,
+        scrollY: ScrollOffset = ScrollOffset.Zero,
         translateY: Int = 0,
         margin: BoxInsets = BoxInsets.NONE,
         suppressImages: Boolean = false,
@@ -138,7 +141,7 @@ class ChildrenScope {
 private fun buildContainer(
     dir: Dir, width: Sizing, height: Sizing, padding: BoxInsets, spacing: Int,
     main: MainAlign, cross: CrossAlign, background: Int?, border: Border?,
-    clip: Boolean, scrollY: Int, translateY: Int, margin: BoxInsets,
+    clip: Boolean, scrollY: ScrollOffset, translateY: Int, margin: BoxInsets,
     suppressImages: Boolean,
     content: ChildrenScope.() -> Unit,
 ): Container {
@@ -160,7 +163,7 @@ fun column(
     background: Int? = null,
     border: Border? = null,
     clip: Boolean = false,
-    scrollY: Int = 0,
+    scrollY: ScrollOffset = ScrollOffset.Zero,
     translateY: Int = 0,
     margin: BoxInsets = BoxInsets.NONE,
     suppressImages: Boolean = false,
@@ -180,7 +183,7 @@ fun row(
     background: Int? = null,
     border: Border? = null,
     clip: Boolean = false,
-    scrollY: Int = 0,
+    scrollY: ScrollOffset = ScrollOffset.Zero,
     translateY: Int = 0,
     margin: BoxInsets = BoxInsets.NONE,
     suppressImages: Boolean = false,

@@ -12,10 +12,13 @@ import eu.depau.glasslayout.core.model.FontToken
 import eu.depau.glasslayout.core.model.MainAlign
 import eu.depau.glasslayout.core.model.BoxInsets
 import eu.depau.glasslayout.core.model.Border
+import eu.depau.glasslayout.core.model.ScrollOffset
+import eu.depau.glasslayout.core.model.SolvedDimensions
 import eu.depau.glasslayout.core.render.RenderCommand
 import eu.depau.glasslayout.core.text.TextSpan
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class LayoutSolverTest {
@@ -69,7 +72,7 @@ class LayoutSolverTest {
 
     @Test fun clipPrunesOffscreenLines() {
         val root = column(width = Fixed(100), height = Fixed(100)) {
-            column(width = Fill, height = Fill, clip = true, scrollY = 50) {
+            column(width = Fill, height = Fill, clip = true, scrollY = ScrollOffset.Fixed(50)) {
                 repeat(10) { text("L$it") }
             }
         }
@@ -201,14 +204,30 @@ class LayoutSolverTest {
         assertEquals(8, t[1].y)
     }
 
-    @Test fun measureHeightComputesCorrectHeightWithoutSolvingFullLayout() {
-        val root = column(width = Fixed(100), height = Fit) {
-            text("A", font = FontToken.Small)
-            spacer(height = Fixed(15))
-            text("B", font = FontToken.Small)
+    @Test fun dynamicScrollOffsetIsResolvedCorrectly() {
+        var resolvedDimensions: SolvedDimensions? = null
+        val root = column(width = Fixed(100), height = Fixed(100)) {
+            column(
+                width = Fill, height = Fixed(80), clip = true,
+                scrollY = ScrollOffset.Dynamic { solved ->
+                    resolvedDimensions = solved
+                    20
+                }
+            ) {
+                box(width = Fill, height = Fixed(150), margin = BoxInsets(top = 30), background = 1)
+            }
         }
-        val h = solver.measureHeight(root, 100)
-        assertEquals(35, h)
+        val cmds = solver.solve(root, LSize(100, 100))
+        assertNotNull(resolvedDimensions)
+        assertEquals(100, resolvedDimensions!!.width)
+        assertEquals(80, resolvedDimensions!!.height)
+        assertEquals(0, resolvedDimensions!!.contentWidth)
+        assertEquals(150, resolvedDimensions!!.contentHeight)
+
+        val f = fills(cmds)
+        assertEquals(1, f.size)
+        // Check that the child box is shifted up by the resolved scrollY (20) from its margin-top (30) -> 10
+        assertEquals(10, f[0].rect.top)
     }
 
     @Test fun splitsParagraphsByNewline() {
@@ -258,5 +277,22 @@ class LayoutSolverTest {
         
         assertEquals(0, t[1].x)
         assertEquals(12, t[1].y) // Small linePitch is 12
+    }
+
+    @Test fun growHeightChildrenAreShrunkToFitParent() {
+        val root = column(width = Fixed(100), height = Fixed(100)) {
+            // Parent has 100 height.
+            // Child 1 has Fixed(30) height.
+            // Child 2 has Grow(1) height, but its content has Fixed(150) height.
+            box(width = Fill, height = Fixed(30), background = 1)
+            column(width = Fill, height = Fill, background = 2) {
+                box(width = Fill, height = Fixed(150))
+            }
+        }
+        val cmds = solver.solve(root, LSize(100, 100))
+        val f = fills(cmds)
+        assertEquals(2, f.size)
+        assertEquals(30, f[0].rect.height)
+        assertEquals(70, f[1].rect.height)
     }
 }

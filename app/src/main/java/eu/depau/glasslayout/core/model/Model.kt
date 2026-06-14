@@ -41,6 +41,22 @@ data class BoxInsets(val left: Int = 0, val top: Int = 0, val right: Int = 0, va
 
 data class Border(val color: Int, val thickness: Int = 1)
 
+data class SolvedDimensions(
+    val width: Int,
+    val height: Int,
+    val contentWidth: Int,
+    val contentHeight: Int
+)
+
+sealed interface ScrollOffset {
+    data class Fixed(val px: Int) : ScrollOffset
+    class Dynamic(val resolve: (SolvedDimensions) -> Int) : ScrollOffset
+
+    companion object {
+        val Zero = Fixed(0)
+    }
+}
+
 sealed interface Element {
     val width: Sizing
     val height: Sizing
@@ -66,7 +82,7 @@ data class Container(
     override val background: Int? = null,
     override val border: Border? = null,
     val clip: Boolean = false,
-    val scrollY: Int = 0,
+    val scrollY: ScrollOffset = ScrollOffset.Zero,
     /** Logical Y translation applied to this subtree (used for slide animations). */
     val translateY: Int = 0,
     val children: List<Element> = emptyList(),

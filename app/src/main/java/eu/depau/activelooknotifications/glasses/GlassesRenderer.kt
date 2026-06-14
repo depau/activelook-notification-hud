@@ -114,16 +114,22 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
     }
 
     /** Render page [page] of the gesture-opened notification list. */
-    fun renderNotifList(items: List<NotifItem>, page: Int, status: StatusInfo, contentYOffset: Int = 0) {
+    fun renderNotifList(
+        items: List<NotifItem>,
+        page: Int,
+        status: StatusInfo,
+        contentYOffset: Int = 0,
+        onPageCountResolved: (Int) -> Unit
+    ) {
         val rows = buildListRows(items)
-        val scrollPx = page * pageContentHeight()
         present(
             HudScreens.notifList(
                 statusModel(status, idle = false),
                 rows,
                 statusIcons.bullet(Const.BULLET_SIZE),
-                scrollPx,
+                page,
                 contentYOffset,
+                onPageCountResolved
             )
         )
     }
@@ -185,30 +191,7 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
         return rows
     }
 
-    /** Logical height of one row — MUST mirror the layout the solver produces for [HudScreens.notifList]. */
-    private fun rowHeight(r: ListRow): Int = when (r) {
-        ListRow.Sep -> Const.SEP_H
-        is ListRow.Header -> maxOf(Const.LIST_ICON_SIZE, measurer.lineHeight(FontToken.Small))
-        is ListRow.Line -> measurer.lineHeight(r.font)
-        ListRow.Bullet -> Const.BULLET_SIZE
-    }
 
-    /** Total list height = Σ row heights + the uniform inter-row gap (matches the scroll column). */
-    private fun totalContentHeight(rows: List<ListRow>): Int {
-        if (rows.isEmpty()) return 0
-        return rows.sumOf { rowHeight(it) } + Const.LIST_GAP * (rows.size - 1)
-    }
-
-    /** Clip-viewport height for the list (screen minus margins minus the kept status bar + its gap). */
-    private fun pageContentHeight(): Int =
-        Const.SCREEN_H - Const.TOP_MARGIN - Const.BOTTOM_MARGIN -
-            measurer.lineHeight(FontToken.Small) - Const.STATUS_CONTENT_GAP
-
-    fun notifListPageCount(items: List<NotifItem>): Int {
-        val total = totalContentHeight(buildListRows(items))
-        val page = pageContentHeight().coerceAtLeast(1)
-        return ((total + page - 1) / page).coerceAtLeast(1)
-    }
 
     private fun present(root: Element) {
         var cmds = solver.solve(root, LSize(Const.SCREEN_W, Const.SCREEN_H))

@@ -12,6 +12,7 @@ import eu.depau.glasslayout.core.model.FontToken
 import eu.depau.glasslayout.core.model.MainAlign
 import eu.depau.glasslayout.core.model.BoxInsets
 import eu.depau.glasslayout.core.model.TextAlign
+import eu.depau.glasslayout.core.model.ScrollOffset
 import kotlin.math.roundToInt
 
 /**
@@ -110,8 +111,9 @@ object HudScreens {
         status: StatusBarModel,
         rows: List<ListRow>,
         bullet: Bitmap,
-        scrollPx: Int,
+        pageIndex: Int,
         yOffset: Int,
+        onPageCountResolved: (Int) -> Unit,
     ): Element = column(
         width = Fixed(W),
         height = Fixed(H),
@@ -120,16 +122,26 @@ object HudScreens {
     ) {
         statusBar(status)
         column(
-            width = Fill, height = Fill, clip = true, scrollY = scrollPx,
+            width = Fill, height = Fill, clip = true,
+            scrollY = ScrollOffset.Dynamic { solved ->
+                val pageHeight = solved.height
+                val pageCount = ((solved.contentHeight + pageHeight - 1) / pageHeight).coerceAtLeast(1)
+                onPageCountResolved(pageCount)
+                pageIndex * pageHeight
+            },
             spacing = Const.LIST_GAP, translateY = yOffset,
             suppressImages = (yOffset != 0),
         ) {
-            for (r in rows) when (r) {
-                ListRow.Sep -> separator()
-                is ListRow.Header -> headerRow(r.icon, r.appName, r.time)
-                is ListRow.Line -> text(r.text, font = r.font, align = TextAlign.Start)
-                ListRow.Bullet -> centeredBullet(bullet)
-            }
+            notifListContent(rows, bullet)
+        }
+    }
+
+    private fun ChildrenScope.notifListContent(rows: List<ListRow>, bullet: Bitmap) {
+        for (r in rows) when (r) {
+            ListRow.Sep -> separator()
+            is ListRow.Header -> headerRow(r.icon, r.appName, r.time)
+            is ListRow.Line -> text(r.text, font = r.font, align = TextAlign.Start)
+            ListRow.Bullet -> centeredBullet(bullet)
         }
     }
 

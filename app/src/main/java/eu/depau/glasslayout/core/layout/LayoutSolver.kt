@@ -21,6 +21,9 @@ import eu.depau.glasslayout.core.text.LineBreaker
 import eu.depau.glasslayout.core.text.StandardLineBreaker
 import eu.depau.glasslayout.core.text.BasicLineBreaker
 import eu.depau.glasslayout.core.model.FontToken
+import eu.depau.glasslayout.core.model.ScrollOffset
+import eu.depau.glasslayout.core.model.SolvedDimensions
+
 
 /**
  * Flexbox-style (Clay-inspired) layout solver. Pure: given an [Element] tree, a viewport, and a
@@ -41,19 +44,10 @@ class LayoutSolver(
         fitHeights(node)
         node.h = resolveAxis(node.height, node.contentH, node.contentH, viewport.height, fill = viewport.height)
         growHeights(node)
+        resolveScrolls(node)
         val out = ArrayList<RenderCommand>()
         place(node, 0, 0, clip = null, suppressImages = false, out)
         return out
-    }
-
-    fun measureHeight(root: Element, width: Int): Int {
-        val node = build(root)
-        fitWidths(node)
-        node.w = resolveAxis(node.width, node.prefW, node.minW, width, fill = width)
-        growWidths(node)
-        fitHeights(node)
-        node.h = resolveAxis(node.height, node.contentH, node.contentH, 10000, fill = 10000)
-        return node.h
     }
 
     // --- node ---
@@ -68,6 +62,7 @@ class LayoutSolver(
         var minW = 0
         var prefW = 0
         var contentH = 0
+        var scrollY = 0
         var lineSpans: List<List<TextSpan>> = emptyList()
         val children = ArrayList<Node>()
     }
@@ -76,6 +71,28 @@ class LayoutSolver(
         val n = Node(el)
         if (el is Container) el.children.forEach { n.children += build(it) }
         return n
+    }
+
+    private fun resolveScrolls(n: Node) {
+        val el = n.el
+        if (el is Container) {
+            n.scrollY = when (val s = el.scrollY) {
+                is ScrollOffset.Fixed -> s.px
+                is ScrollOffset.Dynamic -> {
+                    val borderThick = el.border?.thickness ?: 0
+                    val padH = el.margin.horizontal + el.padding.horizontal + 2 * borderThick
+                    val padV = el.margin.vertical + el.padding.vertical + 2 * borderThick
+                    val solved = SolvedDimensions(
+                        width = (n.w - padH).coerceAtLeast(0),
+                        height = (n.h - padV).coerceAtLeast(0),
+                        contentWidth = (n.prefW - padH).coerceAtLeast(0),
+                        contentHeight = (n.contentH - padV).coerceAtLeast(0)
+                    )
+                    s.resolve(solved)
+                }
+            }
+            n.children.forEach { resolveScrolls(it) }
+        }
     }
 
     // --- pass 1: fit widths (bottom-up) ---
@@ -334,6 +351,8 @@ class LayoutSolver(
                         left -= share
                     }
                 }
+            } else if (remaining < 0) {
+                shrinkHeights(n.children, -remaining)
             }
         } else {
             for (c in n.children) {
@@ -346,6 +365,20 @@ class LayoutSolver(
             }
         }
         n.children.forEach { growHeights(it) }
+    }
+
+    private fun shrinkHeights(children: List<Node>, deficit: Int) {
+        val shrinkables = children.filter { it.height is Sizing.Grow }
+        val capacity = shrinkables.sumOf { it.h }
+        if (capacity <= 0) return
+        val take = deficit.coerceAtMost(capacity)
+        var left = take
+        shrinkables.forEachIndexed { i, c ->
+            val cap = c.h
+            val cut = if (i == shrinkables.lastIndex) left.coerceAtMost(cap) else (take * cap / capacity).coerceAtMost(cap)
+            c.h -= cut
+            left -= cut
+        }
     }
 
     // --- pass 5: position + emit ---
@@ -389,7 +422,7 @@ class LayoutSolver(
 
         val borderThick = el.border?.thickness ?: 0
         val contentX = drawX + borderThick + el.padding.left
-        val contentY = drawY + borderThick + el.padding.top - el.scrollY + el.translateY
+        val contentY = drawY + borderThick + el.padding.top - n.scrollY + el.translateY
         val contentW = (drawW - 2 * borderThick - el.padding.horizontal).coerceAtLeast(0)
         val contentH = (drawH - 2 * borderThick - el.padding.vertical).coerceAtLeast(0)
         val gaps = gapTotal(el.spacing, n.children.size)

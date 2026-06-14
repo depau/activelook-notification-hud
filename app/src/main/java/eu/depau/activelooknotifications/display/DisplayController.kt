@@ -18,6 +18,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Drives the glasses display state machine. All state lives in a single consumer coroutine that
@@ -167,7 +168,7 @@ class DisplayController(
             return
         }
         listItems = items
-        listPageCount = renderer.notifListPageCount(items).coerceAtLeast(1)
+        listPageCount = 1
         transitionTo(DisplayState.NotifList(0))
     }
 
@@ -212,7 +213,7 @@ class DisplayController(
     private suspend fun render(state: DisplayState, animateIn: Boolean = true) {
         val status = currentStatus()
 
-        val frames = if (animateIn && animate && Const.ANIM_FRAMES > 1) Const.ANIM_FRAMES else 1
+        val frames = if (animateIn && animate) Const.ANIM_FRAMES else 1
         for (f in 1..frames) {
             // Positive = content starts BELOW its rest position and rises into place, so it never
             // slides up into the status bar (which sits above the clipped content region).
@@ -221,10 +222,12 @@ class DisplayController(
                 DisplayState.Idle -> renderer.renderIdle(status, offset)
                 is DisplayState.AppPresent -> renderer.renderAppPresent(state.notif, state.notif.iconBitmap, status, offset)
                 is DisplayState.Peek -> renderer.renderPeek(state.notif, status, offset)
-                is DisplayState.NotifList -> renderer.renderNotifList(listItems, state.page, status, offset)
+                is DisplayState.NotifList -> renderer.renderNotifList(listItems, state.page, status, offset) { count ->
+                    listPageCount = count
+                }
                 DisplayState.NoNotifs -> renderer.renderNoNotifs(status, offset)
             }
-            if (f < frames) delay(Const.ANIM_FRAME_MS)
+            if (f < frames) delay(Const.ANIM_FRAME_MS.milliseconds)
         }
     }
 
