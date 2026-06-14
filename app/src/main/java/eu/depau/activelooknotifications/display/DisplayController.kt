@@ -130,13 +130,18 @@ class DisplayController(
             when (event) {
                 is Event.NewNotif -> {
                     activeNotifs = (activeNotifs.filter { it.key != event.item.key } + event.item).sortedByDescending { it.postTime }
-                    val currentState = _state.value
-                    if (currentState is DisplayState.AppPresent && currentState.notif.packageName == event.item.packageName) {
-                        transitionTo(DisplayState.AppPresent(event.item), animateIn = false)
-                    } else if (currentState is DisplayState.Peek && currentState.notif.packageName == event.item.packageName) {
-                        transitionTo(DisplayState.Peek(event.item), animateIn = false)
-                    } else {
-                        transitionTo(DisplayState.AppPresent(event.item), animateIn = true)
+                    when (val currentState = _state.value) {
+                        is DisplayState.AppPresent if currentState.notif.packageName == event.item.packageName -> {
+                            transitionTo(DisplayState.AppPresent(event.item), animateIn = false)
+                        }
+
+                        is DisplayState.Peek if currentState.notif.packageName == event.item.packageName -> {
+                            transitionTo(DisplayState.Peek(event.item), animateIn = false)
+                        }
+
+                        else -> {
+                            transitionTo(DisplayState.AppPresent(event.item), animateIn = true)
+                        }
                     }
                 }
 
