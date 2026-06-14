@@ -83,12 +83,13 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
 
     // --- States (same signatures the controller already calls; glyphs only on the settled frame) ---
 
-    fun renderIdle(status: StatusInfo, contentYOffset: Int = 0) {
+    fun renderIdle(status: StatusInfo, activeNotifs: List<NotifItem>, contentYOffset: Int = 0) {
         present(
             HudScreens.idle(
                 statusModel(status, idle = true),
                 status.time,
                 status.date,
+                activeNotifs,
                 contentYOffset
             )
         )

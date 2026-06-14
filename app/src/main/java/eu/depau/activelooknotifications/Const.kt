@@ -111,6 +111,7 @@ object Const {
     // --- Icons ---
     const val ICON_SIZE = 48
     const val ICON_THRESHOLD = 128
+    const val NOTIFICATION_ICONS_GAP = 16
     val ICON_FORMAT: ImgStreamFormat = ImgStreamFormat.MONO_4BPP_HEATSHRINK
 
     // --- Animation (per-frame redraw of content at an offset Y; text only) ---

@@ -6,6 +6,7 @@ import eu.depau.activelooknotifications.display.NotifItem
 import eu.depau.glasslayout.core.dsl.ChildrenScope
 import eu.depau.glasslayout.core.dsl.Fill
 import eu.depau.glasslayout.core.dsl.Fixed
+import eu.depau.glasslayout.core.dsl.Fit
 import eu.depau.glasslayout.core.dsl.column
 import eu.depau.glasslayout.core.model.CrossAlign
 import eu.depau.glasslayout.core.model.Element
@@ -38,6 +39,7 @@ object HudScreens {
         status: StatusBarModel,
         clock: String,
         date: String,
+        activeNotifs: List<NotifItem>,
         yOffset: Int
     ): Element =
         column(
@@ -58,6 +60,26 @@ object HudScreens {
                     font = FontToken.Small,
                     align = TextAlign.Center
                 )
+                if (activeNotifs.isNotEmpty()) {
+                    val uniqueNotifs = activeNotifs.distinctBy { it.packageName }.take(7)
+                    row(
+                        width = Fit,
+                        main = MainAlign.Center,
+                        cross = CrossAlign.Center,
+                        padding = BoxInsets(top = Const.NOTIFICATION_ICONS_GAP),
+                        spacing = 6
+                    ) {
+                        for (notif in uniqueNotifs) {
+                            notif.listIconBitmap?.let { bmp ->
+                                image(
+                                    payload = bmp,
+                                    w = Const.LIST_ICON_SIZE,
+                                    h = Const.LIST_ICON_SIZE
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 

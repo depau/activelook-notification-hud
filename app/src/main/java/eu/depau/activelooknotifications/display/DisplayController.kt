@@ -53,6 +53,7 @@ class DisplayController(
     private var timerToken = 0L
 
     private var listItems: List<NotifItem> = emptyList()
+    private var activeNotifs: List<NotifItem> = emptyList()
     private var listPageCount = 0
     private var lastGestureAt = 0L
 
@@ -80,7 +81,10 @@ class DisplayController(
         loopJob = scope.launch { runLoop() }
         clockJob = scope.launch { runClock() }
         // Initial render.
-        scope.launch { transitionTo(DisplayState.Idle) }
+        scope.launch {
+            activeNotifs = NotifRepository.activeProvider?.invoke().orEmpty()
+            transitionTo(DisplayState.Idle)
+        }
     }
 
     fun stop() {
@@ -125,6 +129,7 @@ class DisplayController(
         for (event in events) {
             when (event) {
                 is Event.NewNotif -> {
+                    activeNotifs = (activeNotifs.filter { it.key != event.item.key } + event.item).sortedByDescending { it.postTime }
                     val currentState = _state.value
                     if (currentState is DisplayState.AppPresent && currentState.notif.packageName == event.item.packageName) {
                         transitionTo(DisplayState.AppPresent(event.item), animateIn = false)
@@ -136,6 +141,7 @@ class DisplayController(
                 }
 
                 is Event.NotifRemoved -> {
+                    activeNotifs = activeNotifs.filter { it.key != event.key }
                     val currentState = _state.value
                     if (currentState is DisplayState.AppPresent && currentState.notif.key == event.key) {
                         transitionTo(DisplayState.Idle)
@@ -190,6 +196,7 @@ class DisplayController(
     /** Read the live list of currently-posted notifications and open it (or show "No notifications"). */
     private suspend fun openList() {
         val items = NotifRepository.activeProvider?.invoke().orEmpty()
+        activeNotifs = items
         if (items.isEmpty()) {
             transitionTo(DisplayState.NoNotifs)
             return
@@ -246,7 +253,7 @@ class DisplayController(
             // slides up into the status bar (which sits above the clipped content region).
             val offset = Const.ANIM_TRAVEL * (frames - f) / frames
             when (state) {
-                DisplayState.Idle -> renderer.renderIdle(status, offset)
+                DisplayState.Idle -> renderer.renderIdle(status, activeNotifs, offset)
                 is DisplayState.AppPresent -> renderer.renderAppPresent(state.notif, state.notif.iconBitmap, status, offset)
                 is DisplayState.Peek -> renderer.renderPeek(state.notif, status, offset)
                 is DisplayState.NotifList -> renderer.renderNotifList(listItems, state.page, status, offset) { count ->
