@@ -93,7 +93,6 @@ class AndroidGlyphRasterizer(context: Context) : GlyphRasterizer {
             val cp = run.codePointAt(i)
             if (cp == 0xFE0F ||
                 cp in 0x1F000..0x1FAFF ||
-                cp in 0x1F1E6..0x1F1FF ||
                 cp in 0x2600..0x27BF ||
                 cp in 0x2B00..0x2BFF ||
                 cp in 0x2190..0x21FF
