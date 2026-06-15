@@ -169,6 +169,9 @@ class NotifGlassService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // Started by BootReceiver: connect now (also promotes us to foreground within the 5 s FGS
+        // window). Guarded so we don't race onCreate's maybeAutoConnect().
+        if (intent?.action == ACTION_START_FROM_BOOT && !shouldBeConnected) connectGlasses()
         return START_STICKY
     }
 
@@ -679,5 +682,6 @@ class NotifGlassService : Service() {
         private val RECONNECT_TOKEN = Any()
         private val DISCOVER_TOKEN = Any()
         const val ACTION_DISCONNECT = "eu.depau.activelooknotifications.action.DISCONNECT"
+        const val ACTION_START_FROM_BOOT = "eu.depau.activelooknotifications.action.START_FROM_BOOT"
     }
 }

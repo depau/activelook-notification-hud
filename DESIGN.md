@@ -265,6 +265,10 @@ resurrected.
   on reconnect the SDK connects directly (skipping a scan), falling back to a scan on any failure.
 - **Auto-connect** hops to the main thread (`handler.post`) because BLE/FGS calls require it, and
   re-checks `shouldBeConnected` inside the post to avoid a double-connect race.
+- **Start-on-boot** (`BootReceiver`) reuses the connect path: on `BOOT_COMPLETED` it starts the
+  service with `ACTION_START_FROM_BOOT`, which calls `connectGlasses()`. The receiver only starts
+  when the setting is on, a device is paired, and `BLUETOOTH_CONNECT` is granted — otherwise the FGS
+  would never call `startForeground()` and Android 12+ crashes it (the 5 s FGS rule).
 - **Reconnect loop** uses token-grouped `handler.postAtTime` (`RECONNECT_TOKEN`) so callbacks cancel
   as a unit; re-checks state before acting. Disconnect handling guards reference identity
   (`connectedGlasses === glasses`) so a stale callback can't clobber a newer connection.

@@ -66,7 +66,7 @@ Constants in `Const.kt` are now grounded in the docs, but a few pixel offsets ma
 - **Apps to mirror** — allowlist ("only selected") or denylist ("all except selected").
 - **Auto-brightness (ALS)** — when on, the glasses set brightness from ambient light and the
   brightness slider is ignored; turn it off to use the slider.
-- Timeouts (app splash / peek / open), brightness, show-icon, animate, auto-connect.
+- Timeouts (app splash / peek / open), brightness, show-icon, animate, auto-connect, start-on-boot.
 - Mobile signal + network type on the idle screen only appears if `READ_PHONE_STATE` is granted
   (grant it from Settings; otherwise the right side of the idle bar is blank).
 

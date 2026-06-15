@@ -39,6 +39,7 @@ class SettingsRepository(private val context: Context) {
     val showIcon: Flow<Boolean> = ds.data.map { it[KEY_SHOW_ICON] ?: Const.SHOW_ICON }
     val animateTransitions: Flow<Boolean> = ds.data.map { it[KEY_ANIMATE] ?: Const.ANIMATE_TRANSITIONS }
     val autoConnect: Flow<Boolean> = ds.data.map { it[KEY_AUTO_CONNECT] ?: true }
+    val autoStartOnBoot: Flow<Boolean> = ds.data.map { it[KEY_AUTO_START_ON_BOOT] ?: true }
     val debugScreenBorder: Flow<Boolean> = ds.data.map { it[KEY_DEBUG_BORDER] ?: false }
     val hideMinimized: Flow<Boolean> = ds.data.map { it[KEY_HIDE_MINIMIZED] ?: true }
 
@@ -65,6 +66,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setShowIcon(value: Boolean) = ds.edit { it[KEY_SHOW_ICON] = value }
     suspend fun setAnimateTransitions(value: Boolean) = ds.edit { it[KEY_ANIMATE] = value }
     suspend fun setAutoConnect(value: Boolean) = ds.edit { it[KEY_AUTO_CONNECT] = value }
+    suspend fun setAutoStartOnBoot(value: Boolean) = ds.edit { it[KEY_AUTO_START_ON_BOOT] = value }
     suspend fun setDebugScreenBorder(value: Boolean) = ds.edit { it[KEY_DEBUG_BORDER] = value }
     suspend fun setGlassesConfig(value: String) = ds.edit { it[KEY_GLASSES_CONFIG] = value }
     suspend fun setDebugPreview(value: Boolean) = ds.edit { it[KEY_DEBUG_PREVIEW] = value }
@@ -82,6 +84,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_SHOW_ICON = booleanPreferencesKey("show_icon")
         private val KEY_ANIMATE = booleanPreferencesKey("animate_transitions")
         private val KEY_AUTO_CONNECT = booleanPreferencesKey("auto_connect")
+        private val KEY_AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
         private val KEY_DEBUG_BORDER = booleanPreferencesKey("debug_screen_border")
         private val KEY_GLASSES_CONFIG = stringPreferencesKey("glasses_config")
         private val KEY_DEBUG_PREVIEW = booleanPreferencesKey("debug_preview")
