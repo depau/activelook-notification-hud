@@ -118,15 +118,10 @@ A pure value-identity differ producing a `DiffPlan` (dirty rects to erase + comm
 
 ### Text measurement vs shaping (`core/text/`)
 
-Two separate abstractions, both reasons rooted in ASCII-only ROM fonts:
-
-- `TextMeasurer` is token-based so the **core never sees device font ids**; exposes `measureWidth`,
-  `lineHeight`, `linePitch` (top-to-top, distinct from cell height), `wrap`, `ellipsize`. Abstract
-  because real glyph metrics need Android rasterization; `FakeMeasurer` substitutes in tests.
-- `TextShaper`/`AsciiTextShaper` transliterates Unicode → ASCII (NFD + drop combining marks, é→e; a
-  `SPECIALS` map for …→`...`, ß→ss, €→EUR, smart quotes/dashes) and **collapses anything else to a
-  single space** rather than emit a missing-glyph mark. (The app layer's `InlineShaper` goes
-  further — it keeps accents/emoji as rasterized glyph images instead.)
+`TextMeasurer` is token-based so the **core never sees device font ids**; exposes `measureWidth`,
+`lineHeight`, `linePitch` (top-to-top, distinct from cell height), `wrap`, `ellipsize`. Abstract
+because real glyph metrics need Android rasterization; `FakeMeasurer` substitutes in tests.
+Unicode handling (ASCII-only ROM fonts) lives in the app-layer `TextSpanParserImpl` — see below.
 
 ### Clipping, scroll, translate
 

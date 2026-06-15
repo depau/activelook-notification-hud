@@ -4,11 +4,10 @@ import com.activelook.activelooksdk.types.FontInfo
 import eu.depau.glasslayout.activelook.FontResolver
 import eu.depau.glasslayout.activelook.ResolvedFont
 import eu.depau.glasslayout.core.model.FontToken
-import eu.depau.glasslayout.core.text.AsciiTextShaper
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class FontAndShaperTest {
+class FontResolverTest {
 
     private fun resolver() = FontResolver(
         desiredHeights = mapOf(FontToken.Small to 24, FontToken.Medium to 35, FontToken.Large to 49),
@@ -31,22 +30,5 @@ class FontAndShaperTest {
         assertEquals(2.toByte(), r.resolve(FontToken.Medium).id)
         assertEquals(49, r.resolve(FontToken.Large).heightPx)
         assertEquals(24, r.resolve(FontToken.Small).heightPx)
-    }
-
-    @Test fun shaperTransliteratesAccents() {
-        assertEquals("cafe", AsciiTextShaper.toAscii("café"))
-        assertEquals("aeiou", AsciiTextShaper.toAscii("àèìòù"))
-        assertEquals("Reunion", AsciiTextShaper.toAscii("Réunion"))
-    }
-
-    @Test fun shaperReplacesSpecials() {
-        assertEquals("a...b", AsciiTextShaper.toAscii("a…b"))
-        assertEquals("5EUR", AsciiTextShaper.toAscii("5€"))
-        assertEquals("ss", AsciiTextShaper.toAscii("ß"))
-        assertEquals("\"hi\"", AsciiTextShaper.toAscii("“hi”"))
-    }
-
-    @Test fun shaperDropsEmojiAndCollapsesSpaces() {
-        assertEquals("hi there", AsciiTextShaper.toAscii("hi 😀 there"))
     }
 }
