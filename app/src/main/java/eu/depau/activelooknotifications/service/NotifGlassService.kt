@@ -247,7 +247,7 @@ class NotifGlassService : Service() {
         _running.value = true
         _statusMessage.value = "Connecting glasses…"
         acquireWakeLock()
-        if (canStartForegroundService()) startForegroundServiceNotification("Connecting glasses…")
+        if (canStartForegroundService()) startForegroundServiceNotification("Waiting for glasses — will connect when powered on")
         phoneStatus?.start()
         tryFastReconnectThenScan()
     }
@@ -408,7 +408,7 @@ class NotifGlassService : Service() {
         shouldBeConnected = true
         _running.value = true
         acquireWakeLock()
-        if (canStartForegroundService()) startForegroundServiceNotification("Connecting glasses…")
+        if (canStartForegroundService()) startForegroundServiceNotification("Waiting for glasses — will connect when powered on")
         phoneStatus?.start()
         _statusMessage.value = "Connecting to ${dg.name ?: dg.address}…"
         connectDiscovered(dg)
@@ -607,7 +607,7 @@ class NotifGlassService : Service() {
         if (!isForeground) return
         val text = when (_glassesState.value) {
             ConnectionState.CONNECTED -> "Glasses connected"
-            ConnectionState.CONNECTING -> "Connecting…"
+            ConnectionState.CONNECTING -> "Waiting for glasses — will connect when powered on"
             ConnectionState.SCANNING -> "Scanning for glasses…"
             ConnectionState.ERROR -> "Connection error"
             ConnectionState.DISCONNECTED -> "Disconnected"
