@@ -207,7 +207,7 @@ cell), other scripts via system fallback. LRU-cached (64 entries) keyed `run@fon
 Pure layout. Every screen is a fixed `W×H` root column with safe-margin padding, a status bar at top,
 and a `clip=true` + `translateY` content column so animation slides clipped content. Screens: `idle`
 (clock), `appPresent` (icon + app-name splash), `peek` (title + first body lines), `notifList` (paginated
-full list with scrollbar).
+full list).
 
 **`drawGlyphs=false` during animation**: mid-animation frames reserve glyph width with a `spacer`
 instead of streaming the image, so layout doesn't jump frame-to-frame and BLE isn't flooded. Glyphs
@@ -349,14 +349,13 @@ device-calibrated first guesses — read README "On-device fine-tuning" before n
 
 - **Timeouts**: splash 1.5s / peek 5s / open 10s, clock refresh 1s, gesture debounce 300ms, dedup
   window 1.5s, reconnect 5s. (The three display timeouts are live-tunable via settings.)
-- **Geometry / safe margins**: `SCREEN_W=304`, `SCREEN_H=256`, `CENTER_X=152`, `MARGIN_X=24`,
+- **Geometry / safe margins**: `SCREEN_W=304`, `SCREEN_H=256`, `MARGIN_X=24`,
   `TOP/BOTTOM_MARGIN=14` — edges are unreliable overscan.
-- **Layout**: status/content gaps, scrollbar, peek/list line caps (`LIST_MAX_BODY_LINES` is
+- **Layout**: status/content gaps, peek/list line caps (`LIST_MAX_BODY_LINES` is
   explicitly anti-DoS), `LIST_ICON_SIZE=24` (≈Small font, distinct from `ICON_SIZE=48`),
   `WIDTH_CAL=1.0` (per-glyph rounding calibration).
 - **Fonts**: desired Small/Medium/Large = 24/35/49, fallback ids 0/2/3.
 - **Icons**: `ICON_SIZE=48`, `ICON_THRESHOLD=128`, 4bpp heatshrink.
 - **Animation**: `ANIM_FRAMES=4` (1 = instant), `ANIM_FRAME_MS=35`, `ANIM_TRAVEL=40`.
-- **Feature flags**: brightness 12, show-icon, interrupt-open-on-new, animate, scrollbar,
-  `BOOST_CONNECTION_PRIORITY`.
+- **Feature flags**: brightness 12, show-icon, animate, `BOOST_CONNECTION_PRIORITY`.
 - **Differ knobs**: `MAX_DIRTY_RECTS=4`, `MERGE_SLOP=8`, `FULL_REDRAW_PCT=70`.

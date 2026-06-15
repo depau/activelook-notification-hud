@@ -19,9 +19,6 @@ data class NotifItem(
     /** [Const.LIST_ICON_SIZE]px header icon for the notification list; null if unavailable. */
     val listIconBitmap: Bitmap? = null,
 ) {
-    val bodyFirstLine: String
-        get() = body.lineSequence().firstOrNull { it.isNotBlank() }?.trim() ?: ""
-
     /** Body with CR/CRLF normalized to LF, for consistent wrapping. */
     val sanitizedBody: String
         get() = body.replace("\r\n", "\n").replace('\r', '\n')

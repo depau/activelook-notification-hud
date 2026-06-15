@@ -32,10 +32,6 @@ data class BoxInsets(val left: Int = 0, val top: Int = 0, val right: Int = 0, va
 
     companion object {
         val NONE = BoxInsets()
-        fun all(p: Int) = BoxInsets(p, p, p, p)
-        fun symH(h: Int) = BoxInsets(h, 0, h, 0)
-        fun symV(v: Int) = BoxInsets(0, v, 0, v)
-        fun sym(h: Int, v: Int) = BoxInsets(h, v, h, v)
     }
 }
 

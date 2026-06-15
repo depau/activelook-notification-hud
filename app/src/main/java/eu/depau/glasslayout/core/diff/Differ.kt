@@ -30,7 +30,7 @@ class Differ(
         val changed = symmetricDifference(old, new)
         if (changed.isEmpty()) return DiffPlan(false, emptyList(), emptyList())
 
-        var rects = changed.map { it.bounds.intersect(screen) }.filterNotNull()
+        var rects = changed.mapNotNull { it.bounds.intersect(screen) }
         if (rects.isEmpty()) return DiffPlan(false, emptyList(), emptyList())
         rects = mergeRects(rects)
 

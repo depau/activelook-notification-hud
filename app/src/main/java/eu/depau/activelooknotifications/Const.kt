@@ -40,7 +40,6 @@ object Const {
     // DECREASING y. Width estimation uses the real font heights read from the glasses at connect.
     const val SCREEN_W = 304
     const val SCREEN_H = 256
-    const val CENTER_X = 152
 
     // Horizontal safe margin: the extreme left/right of the buffer is in overscan / outside the
     // reflector and not reliably visible, so keep content well inside. Tune per the debug border.
@@ -53,15 +52,12 @@ object Const {
     const val BOTTOM_MARGIN = 14
     const val STATUS_CONTENT_GAP = 6  // gap below the status bar before content
     const val ICON_NAME_GAP = 8       // app-present: gap between icon and name
-    const val SCROLLBAR_GAP = 4       // open: gap between body and scrollbar
-    const val SCROLLBAR_W = 3         // open: scrollbar thickness
     const val MAX_LINE_W = 250        // default body wrap width
 
     // Status bar icon spacing.
     const val STATUS_ITEM_GAP =
         10    // between the glasses-battery group and the phone-battery group
     const val STATUS_PCT_GAP = 5      // between a battery icon/widget and its "%" text
-    const val STATUS_LABEL_GAP = 4    // between the "5G"/"LTE" label and the cellular signal icon
 
     // --- Peek (glance) line caps ---
     const val PEEK_TITLE_LINES = 2    // max title rows in the glance
@@ -125,10 +121,7 @@ object Const {
     const val DEFAULT_BRIGHTNESS = 12
     const val SHOW_ICON = true
     const val SHOW_ONGOING = false
-    const val INTERRUPT_OPEN_ON_NEW = true
     const val ANIMATE_TRANSITIONS = true
-    const val SHOW_STATUS_SEPARATOR = false
-    const val SHOW_SCROLLBAR = true
 
     /**
      * Open a throwaway 2nd GATT to the glasses purely to request CONNECTION_PRIORITY_HIGH, raising

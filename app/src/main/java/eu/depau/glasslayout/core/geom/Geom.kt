@@ -1,8 +1,5 @@
 package eu.depau.glasslayout.core.geom
 
-/** A point in logical layout space (origin top-left, x→right, y→down). */
-data class LPoint(val x: Int, val y: Int)
-
 /** A size in logical pixels. */
 data class LSize(val width: Int, val height: Int)
 
@@ -42,8 +39,6 @@ data class LRect(val left: Int, val top: Int, val right: Int, val bottom: Int) {
     fun inflate(d: Int): LRect = LRect(left - d, top - d, right + d, bottom + d)
 
     companion object {
-        val EMPTY = LRect(0, 0, 0, 0)
-
         /** Build a normalized rect from any two opposite corners. */
         fun of(x0: Int, y0: Int, x1: Int, y1: Int): LRect =
             LRect(minOf(x0, x1), minOf(y0, y1), maxOf(x0, x1), maxOf(y0, y1))
