@@ -44,6 +44,9 @@ class SettingsRepository(private val context: Context) {
     /** Allow external apps (Tasker etc.) to toggle "pause for workout" via broadcast. */
     val allowExternalStandby: Flow<Boolean> = ds.data.map { it[KEY_ALLOW_EXTERNAL_STANDBY] ?: false }
 
+    /** nonfree flavor: auto-pause while a Garmin workout records (via the ActiveLook Pause data field). On by default. */
+    val autoPauseForGarmin: Flow<Boolean> = ds.data.map { it[KEY_AUTO_PAUSE_GARMIN] ?: true }
+
     /** Glasses configuration to activate on connect (cfgSet). "ALooK" is the documented default. */
     val glassesConfig: Flow<String> = ds.data.map { it[KEY_GLASSES_CONFIG] ?: "ALooK" }
 
@@ -72,6 +75,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSerializedGlasses(value: String) = ds.edit { it[KEY_SERIALIZED_GLASSES] = value }
     suspend fun setHideMinimized(value: Boolean) = ds.edit { it[KEY_HIDE_MINIMIZED] = value }
     suspend fun setAllowExternalStandby(value: Boolean) = ds.edit { it[KEY_ALLOW_EXTERNAL_STANDBY] = value }
+    suspend fun setAutoPauseForGarmin(value: Boolean) = ds.edit { it[KEY_AUTO_PAUSE_GARMIN] = value }
 
     companion object {
         private val KEY_ALLOWED = stringSetPreferencesKey("allowed_packages")
@@ -89,5 +93,6 @@ class SettingsRepository(private val context: Context) {
         private val KEY_SERIALIZED_GLASSES = stringPreferencesKey("serialized_glasses")
         private val KEY_HIDE_MINIMIZED = booleanPreferencesKey("hide_minimized")
         private val KEY_ALLOW_EXTERNAL_STANDBY = booleanPreferencesKey("allow_external_standby")
+        private val KEY_AUTO_PAUSE_GARMIN = booleanPreferencesKey("auto_pause_garmin")
     }
 }

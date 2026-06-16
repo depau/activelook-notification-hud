@@ -11,10 +11,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * Exported entry point so external automation (Tasker, MacroDroid, or a future Garmin Connect IQ
- * companion app) can engage/release "pause for workout" standby. Send an *explicit* broadcast to
- * this receiver with one of [NotifGlassService.ACTION_STANDBY_ON] / `_OFF` / `_TOGGLE`; it forwards
- * the command to the service.
+ * Exported entry point so external automation (Tasker, MacroDroid) can engage/release "pause for
+ * workout" standby. Send an *explicit* broadcast to this receiver with one of
+ * [NotifGlassService.ACTION_STANDBY_ON] / `_OFF` / `_TOGGLE`; it forwards the command to the service.
+ * (Garmin auto-pause doesn't use this path — its [GarminBridge] calls the service directly.)
  *
  * Gated by the "Allow other apps to pause" setting (default off), so an exported receiver can't
  * toggle standby unless the user opted in. Delivering via `startService` is allowed because the
@@ -35,7 +35,11 @@ class StandbyReceiver : BroadcastReceiver() {
             try {
                 if (SettingsRepository(appContext).allowExternalStandby.first()) {
                     runCatching {
-                        appContext.startService(Intent(appContext, NotifGlassService::class.java).setAction(action))
+                        appContext.startService(
+                            Intent(appContext, NotifGlassService::class.java)
+                                .setAction(action)
+                                .putExtra(NotifGlassService.EXTRA_FROM_EXTERNAL, true),
+                        )
                     }.onFailure { Log.w("StandbyReceiver", "forward $action failed", it) }
                 }
             } finally {

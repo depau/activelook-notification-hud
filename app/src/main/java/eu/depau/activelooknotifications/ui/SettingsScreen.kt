@@ -42,6 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
+import eu.depau.activelooknotifications.BuildConfig
+import eu.depau.activelooknotifications.service.GarminBridge
 import eu.depau.activelooknotifications.service.NotifGlassService
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.Modifier
@@ -73,6 +75,7 @@ fun SettingsScreen(
     val debugBorder by settings.debugScreenBorder.collectAsState(initial = false)
     val hideMinimized by settings.hideMinimized.collectAsState(initial = false)
     val allowExternalStandby by settings.allowExternalStandby.collectAsState(initial = false)
+    val autoPauseForGarmin by settings.autoPauseForGarmin.collectAsState(initial = true)
     val devices by (service?.availableDevices ?: MutableStateFlow(emptyList<NotifGlassService.GlassesDevice>()))
         .collectAsState(initial = emptyList())
 
@@ -141,6 +144,11 @@ fun SettingsScreen(
             )
             SwitchRow("Start on boot", "Launch and reconnect automatically after the phone restarts", autoStartOnBoot) {
                 coroutineScope.launch { settings.setAutoStartOnBoot(it) }
+            }
+            if (GarminBridge.SUPPORTED) {
+                SwitchRow("Auto-pause for Garmin", "Release the glasses while a Garmin workout records (needs the ActiveLook Pause data field + Garmin Connect Mobile)", autoPauseForGarmin) {
+                    coroutineScope.launch { settings.setAutoPauseForGarmin(it) }
+                }
             }
             SwitchRow("Allow other apps to pause", "Let external apps (e.g. Tasker) pause/resume the HUD via broadcast", allowExternalStandby) {
                 coroutineScope.launch { settings.setAllowExternalStandby(it) }
@@ -255,7 +263,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
             // Tap the version 7× to reveal debug options.
             Text(
-                "Version $versionName",
+                "Version $versionName (${BuildConfig.FLAVOR})",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier

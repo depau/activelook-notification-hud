@@ -66,6 +66,13 @@ class NotifGlassService : Service() {
 
     enum class ConnectionState { DISCONNECTED, SCANNING, CONNECTING, CONNECTED, ERROR }
 
+    /** Why standby is engaged — surfaced in the app and the FGS notification. */
+    enum class StandbyReason(val statusText: String) {
+        MANUAL("Paused manually — glasses released"),
+        EXTERNAL("Paused by another app — glasses released"),
+        GARMIN("Paused by Garmin watch — glasses released"),
+    }
+
     private val binder = LocalBinder()
     inner class LocalBinder : Binder() {
         fun getService(): NotifGlassService = this@NotifGlassService
@@ -117,6 +124,8 @@ class NotifGlassService : Service() {
     private lateinit var controller: DisplayController
     private lateinit var settings: SettingsRepository
     private var phoneStatus: PhoneStatusProvider? = null
+    // nonfree: listens for the Garmin "ActiveLook Pause" data field; no-op stub on foss.
+    private lateinit var garminBridge: GarminBridge
 
     private var sdk: Sdk? = null
     private var connectedGlasses: Glasses? = null
@@ -126,6 +135,7 @@ class NotifGlassService : Service() {
     @Volatile private var brightness = Const.DEFAULT_BRIGHTNESS
     @Volatile private var ambientLightSensor = true
     @Volatile private var glassesConfigName = "ALooK"
+    @Volatile private var standbyReason = StandbyReason.MANUAL
 
     private val handler = Handler(Looper.getMainLooper())
     private var wakeLock: PowerManager.WakeLock? = null
@@ -148,6 +158,7 @@ class NotifGlassService : Service() {
         phoneStatus = PhoneStatusProvider(applicationContext) { battery, signal ->
             controller.updatePhoneStatus(battery, signal)
         }
+        garminBridge = GarminBridge(this)
 
         initSdk()
         observeSettings()
@@ -170,10 +181,17 @@ class NotifGlassService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // The FGS notification's Pause button and external apps (via StandbyReceiver) share these
+        // actions; the receiver tags its forwards with EXTRA_FROM_EXTERNAL so we can label the source.
+        val reason = if (intent?.getBooleanExtra(EXTRA_FROM_EXTERNAL, false) == true) {
+            StandbyReason.EXTERNAL
+        } else {
+            StandbyReason.MANUAL
+        }
         when (intent?.action) {
-            ACTION_STANDBY_ON -> enterStandby()
+            ACTION_STANDBY_ON -> enterStandby(reason)
             ACTION_STANDBY_OFF -> exitStandby()
-            ACTION_STANDBY_TOGGLE -> if (_standby.value) exitStandby() else enterStandby()
+            ACTION_STANDBY_TOGGLE -> if (_standby.value) exitStandby() else enterStandby(reason)
         }
         // Started by BootReceiver: connect now (also promotes us to foreground within the 5 s FGS
         // window). Guarded so we don't race onCreate's maybeAutoConnect().
@@ -225,6 +243,10 @@ class NotifGlassService : Service() {
                 brightness = it
                 renderer.setBrightness(it)
             }
+        }
+        scope.launch {
+            // start()/stop() must run on the main thread: ConnectIQ.initialize() builds a Handler.
+            settings.autoPauseForGarmin.collect { on -> handler.post { if (on) garminBridge.start() else garminBridge.stop() } }
         }
         scope.launch {
             settings.ambientLightSensor.collect {
@@ -279,10 +301,17 @@ class NotifGlassService : Service() {
      * the link and suppress reconnection until [exitStandby]. Keeps the FGS + wake lock alive so the
      * "Resume" action stays available.
      */
-    fun enterStandby() {
-        if (!shouldBeConnected || _standby.value) return
+    fun enterStandby(reason: StandbyReason = StandbyReason.MANUAL) {
+        if (!shouldBeConnected) return
+        standbyReason = reason
+        if (_standby.value) {
+            // Already paused (e.g. a Garmin keepalive) — just refresh the reason label.
+            _statusMessage.value = reason.statusText
+            updateNotification()
+            return
+        }
         _standby.value = true
-        _statusMessage.value = "Paused — glasses released"
+        _statusMessage.value = reason.statusText
         handler.removeCallbacksAndMessages(RECONNECT_TOKEN)
         stopScan()
         teardownGlasses()
@@ -291,8 +320,25 @@ class NotifGlassService : Service() {
         updateNotification()
     }
 
+    /**
+     * Called by [GarminBridge] (nonfree) on each "workout_running"/keepalive from the watch's ActiveLook
+     * Pause data field: release the glasses and (re)arm a fail-safe so we auto-resume if the watch
+     * goes silent (out of range / crash) without ever sending "workout_stopped". Idempotent — repeated
+     * keepalives just push the timeout out.
+     */
+    fun onGarminWorkoutActive() {
+        enterStandby(StandbyReason.GARMIN)
+        handler.removeCallbacksAndMessages(GARMIN_STANDBY_TOKEN)
+        handler.postAtTime(
+            { exitStandby() },
+            GARMIN_STANDBY_TOKEN,
+            SystemClock.uptimeMillis() + Const.GARMIN_STANDBY_TIMEOUT_MS,
+        )
+    }
+
     /** Leave standby and reconnect to the saved glasses. */
     fun exitStandby() {
+        handler.removeCallbacksAndMessages(GARMIN_STANDBY_TOKEN)
         if (!_standby.value) return
         _standby.value = false
         updateNotification()
@@ -514,7 +560,10 @@ class NotifGlassService : Service() {
         controller.stop()
         _glassesState.value = ConnectionState.DISCONNECTED
         _glassesInfo.value = "Not connected."
-        if (shouldBeConnected) {
+        if (_standby.value) {
+            // This disconnect is the standby teardown itself — keep the "paused" status, don't reconnect.
+            _statusMessage.value = standbyReason.statusText
+        } else if (shouldBeConnected) {
             _statusMessage.value = "Disconnected. Reconnecting…"
             scheduleReconnect()
         } else {
@@ -561,6 +610,9 @@ class NotifGlassService : Service() {
 
     @SuppressLint("MissingPermission")
     private fun releaseConnectionPriority() {
+        // disconnect() before close(): close() alone can leave a ghost ACL link that keeps the
+        // glasses occupied (so a Garmin watch can't connect during standby).
+        runCatching { priorityGatt?.disconnect() }
         runCatching { priorityGatt?.close() }
         priorityGatt = null
     }
@@ -634,7 +686,7 @@ class NotifGlassService : Service() {
 
     private fun updateNotification() {
         if (!isForeground) return
-        val text = if (_standby.value) "Paused — glasses released" else when (_glassesState.value) {
+        val text = if (_standby.value) standbyReason.statusText else when (_glassesState.value) {
             ConnectionState.CONNECTED -> "Glasses connected"
             ConnectionState.CONNECTING -> "Waiting for glasses — will connect when powered on"
             ConnectionState.SCANNING -> "Scanning for glasses…"
@@ -692,6 +744,7 @@ class NotifGlassService : Service() {
     }
 
     private fun cleanup() {
+        garminBridge.stop()
         handler.removeCallbacksAndMessages(null)
         stopScan()
         teardownGlasses()
@@ -720,10 +773,13 @@ class NotifGlassService : Service() {
         private const val NOTIFICATION_ID = 7421
         private val RECONNECT_TOKEN = Any()
         private val DISCOVER_TOKEN = Any()
+        private val GARMIN_STANDBY_TOKEN = Any()
         const val ACTION_SHUTDOWN = "eu.depau.activelooknotifications.action.SHUTDOWN"
         const val ACTION_START_FROM_BOOT = "eu.depau.activelooknotifications.action.START_FROM_BOOT"
         const val ACTION_STANDBY_ON = "eu.depau.activelooknotifications.action.STANDBY_ON"
         const val ACTION_STANDBY_OFF = "eu.depau.activelooknotifications.action.STANDBY_OFF"
         const val ACTION_STANDBY_TOGGLE = "eu.depau.activelooknotifications.action.STANDBY_TOGGLE"
+        /** Set by [StandbyReceiver] so a forwarded standby command is labelled "another app". */
+        const val EXTRA_FROM_EXTERNAL = "eu.depau.activelooknotifications.extra.FROM_EXTERNAL"
     }
 }

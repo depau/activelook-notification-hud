@@ -13,11 +13,17 @@ rationale, gotchas, and known stale-comment discrepancies; read it before non-tr
 ## Commands
 
 ```bash
-./gradlew :app:assembleDebug        # build
-./gradlew :app:testDebugUnitTest    # all JVM unit tests
-./gradlew :app:testDebugUnitTest --tests "eu.depau.glasslayout.LayoutSolverTest"   # single class
-./gradlew :app:installDebug         # install on a connected device
+./gradlew :app:assembleDebug             # build both flavors (see below)
+./gradlew :app:testFossDebugUnitTest     # all JVM unit tests
+./gradlew :app:testFossDebugUnitTest --tests "eu.depau.glasslayout.LayoutSolverTest"   # single class
+./gradlew :app:installFossDebug          # install on a connected device
 ```
+
+Two product flavors (dimension `license`): **foss** (default, no proprietary deps) and **nonfree**
+(adds the Garmin ConnectIQ Mobile SDK for auto-pause during Garmin workouts). Flavor-specific code
+lives in `src/foss/` and `src/nonfree/` (see `service/GarminBridge.kt`); use `…NonfreeDebug…` task
+variants for the nonfree build. The watch-side Connect IQ data field is a separate Monkey C project
+under `connectiq-datafield/`.
 
 BLE and the notification listener **do not work on the emulator** — runtime testing needs a physical
 device with the glasses. The ActiveLook SDK comes from JitPack (

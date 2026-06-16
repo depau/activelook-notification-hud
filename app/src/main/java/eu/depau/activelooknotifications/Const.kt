@@ -33,6 +33,14 @@ object Const {
     /** Delay between glasses reconnection attempts. */
     const val RECONNECT_DELAY_MS = 5_000L
 
+    /**
+     * Auto-resume from Garmin-driven standby if no "workout_running" keepalive arrives within this window
+     * — guards against the watch dropping out of BLE range (or crashing) without ever sending
+     * "workout_stopped", which would otherwise strand the glasses released. Must comfortably exceed the
+     * data field's keepalive interval (30 s, see connectiq-datafield/); 90 s tolerates two misses.
+     */
+    const val GARMIN_STANDBY_TIMEOUT_MS = 90_000L
+
     // --- Glasses display geometry (px) ---
     // Coordinate model (from the ActiveLook reference): origin bottom-left, y measured upward
     // (0..256), but txt(x, y) anchors the TOP of the glyph row, so text hangs DOWNWARD from y.

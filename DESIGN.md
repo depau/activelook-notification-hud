@@ -269,10 +269,21 @@ restarts it if killed); the FGS notification's **Shutdown** action returns `STAR
   app) take them this app must *deliberately* release the link and stop reconnecting — passive
   back-off can't help. `enterStandby()` tears down the link (`teardownGlasses()` → `disconnect()`)
   and `scheduleReconnect()` early-returns while standby is set; the FGS + wake lock stay alive so the
-  "Resume" action remains available. `exitStandby()` clears the gate and fast-reconnects. There is no
-  way to *detect* a Garmin activity from the phone (no API, no notification), so this is manual:
-  driven by the FGS notification's Pause/Resume action and `ACTION_STANDBY_{ON,OFF,TOGGLE}`.
-  `connectGlasses`/`disconnectGlasses` both reset it.
+  "Resume" action remains available. `exitStandby()` clears the gate and fast-reconnects.
+  `connectGlasses`/`disconnectGlasses` both reset it. Triggers: the FGS notification's Pause/Resume
+  action, `ACTION_STANDBY_{ON,OFF,TOGGLE}` (external automation), and — on the **nonfree** flavor —
+  Garmin auto-pause.
+- **Garmin auto-pause (nonfree flavor, `GarminBridge`).** No phone API exposes "activity ongoing",
+  so the signal comes from the watch: a Connect IQ data field (`connectiq-datafield/`) transmits
+  `workout_running`/`workout_stopped` (+ a 30 s keepalive) which Garmin Connect Mobile relays via the
+  proprietary ConnectIQ Mobile SDK. `GarminBridge` is flavor-split — a no-op stub in `src/foss/`
+  (keeps the foss build free of the Garmin dependency; `SUPPORTED=false` hides the setting) and the
+  real listener in `src/nonfree/`. `workout_running` calls `onGarminWorkoutActive()` (= `enterStandby()`
+  **plus** re-arming a `GARMIN_STANDBY_TOKEN` timer for `Const.GARMIN_STANDBY_TIMEOUT_MS`); if the
+  watch goes silent (out of range / crash) without ever sending `workout_stopped`, the timer fires
+  `exitStandby()` so the glasses aren't stranded released. `exitStandby()` always clears that token,
+  so a manual resume can't be undone by a stale fail-safe. Gated by the `autoPauseForGarmin` setting,
+  which starts/stops the bridge.
 - **Fast-reconnect**: the paired `SerializedGlasses` is Java-serialized + Base64'd into DataStore;
   on reconnect the SDK connects directly (skipping a scan), falling back to a scan on any failure.
   `maybeAutoConnect()` hops to the main thread (`handler.post`) because BLE/FGS calls require it.

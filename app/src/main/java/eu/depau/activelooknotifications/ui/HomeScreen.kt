@@ -115,7 +115,7 @@ private fun ConnectionCard(
                 Column(Modifier.weight(1f)) {
                     Text("Glasses connection", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        stateLabel(state),
+                        if (standby) "Paused" else stateLabel(state),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

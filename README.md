@@ -18,10 +18,10 @@ view) driven by the glasses' tap gesture. The phone UI is Jetpack Compose with M
   enabled) — there is no on/off toggle. The foreground-service notification has a **Shutdown** button
   to stop the service and connection entirely.
 - **Pause**: the glasses lock to whoever connects first, so to let a Garmin watch's ActiveLook app
-  drive them this app must release the BLE link and stop reconnecting (passive back-off can't help —
-  and there's no way to *detect* a workout from the phone). Pause it manually from the home-screen
-  pause button or the foreground-service notification; "Resume" reconnects. See
-  [Automation](#automation) to drive it from an external app.
+  drive them this app must release the BLE link and stop reconnecting (passive back-off can't help).
+  Pause it manually from the home-screen pause button or the foreground-service notification;
+  "Resume" reconnects. It can also be automated — from an external app (see [Automation](#automation))
+  or, on the nonfree flavor, automatically by a Garmin workout via a Connect IQ data field.
 
 All timings, coordinates, fonts and feature flags live in
 [`Const.kt`](app/src/main/java/eu/depau/activelooknotifications/Const.kt).
@@ -70,7 +70,8 @@ Constants in `Const.kt` are now grounded in the docs, but a few pixel offsets ma
 ## Settings
 
 - **App notifications** — allowlist ("only selected") or denylist ("all except selected").
-- **Connection** — glasses device picker, forget device, start-on-boot, allow other apps to pause.
+- **Connection** — glasses device picker, forget device, start-on-boot, allow other apps to pause,
+  and (nonfree flavor only) auto-pause for Garmin workouts.
 - **Auto-brightness (ALS)** — when on, the glasses set brightness from ambient light and the
   brightness slider is ignored; turn it off to use the slider.
 - Brightness, a **Timing** dialog (app-splash / peek / open durations), animate transitions.
@@ -91,18 +92,33 @@ ends. Send one of these actions to package `eu.depau.activelooknotifications`:
 The HUD must be running (foreground service active), and **"Allow other apps to pause"** must be
 enabled in Settings (off by default), for the command to take effect.
 
-**Garmin Connect IQ path (not built — a separate project):** since no API or notification exposes
-"activity ongoing" to the phone, the only fully-automatic option is a Garmin **watch app/widget**
-(not a plain *data field* — those are too sandboxed to use `Communications.transmit` reliably) that,
-via the free **Connect IQ Mobile SDK**, messages this app on activity start/stop to fire the standby
-broadcast above. That means a Monkey C watch project plus integrating the ConnectIQ Android library
-and a shared app UUID — meaningful effort, hence left as a future option.
+**Garmin Connect IQ auto-pause (nonfree flavor):** no phone API exposes "activity ongoing", so the
+signal comes from the watch. [`connectiq-datafield/`](connectiq-datafield/) is a tiny Connect IQ
+**data field** (add it to the same activities as the Engo/ActiveLook field) that transmits
+`workout_running` for the whole time it's loaded on an activity — the ActiveLook field grabs the glasses
+as soon as the activity screen opens, before the timer starts — and `workout_stopped` when the activity
+ends, plus a 30 s keepalive.
+Garmin Connect Mobile relays those to the app's `nonfree` build, which enters/exits standby
+automatically — enable **Auto-pause for Garmin** in Settings. If the watch drops out of range
+without sending `workout_stopped`, the keepalive lets the phone auto-resume after
+`GARMIN_STANDBY_TIMEOUT_MS`. (A foreground data field can use `Communications` since Connect IQ
+API 5.0.0; the watch must be on that firmware or newer.)
+
+The `foss` flavor omits this entirely — no proprietary Garmin SDK — so use the **Automation**
+broadcasts above (e.g. Tasker) if you want similar behaviour without it.
 
 ## Build
 
 ```
-./gradlew :app:assembleDebug
+./gradlew :app:assembleFossDebug      # F-Droid-friendly: no proprietary deps
+./gradlew :app:assembleNonfreeDebug   # adds the Garmin ConnectIQ Mobile SDK (auto-pause)
+./gradlew :app:assembleDebug          # both flavors
 ```
+
+Two product flavors share one codebase: **foss** (default, no Garmin dependency) and **nonfree**
+(adds `com.garmin.connectiq:ciq-companion-app-sdk` for Garmin auto-pause). The active flavor is shown
+next to the version in Settings. The watch-side data field builds separately — see
+[`connectiq-datafield/README.md`](connectiq-datafield/README.md).
 
 Requires the ActiveLook SDK from JitPack (already declared) and a physical device — BLE and the
 notification listener don't work on the emulator.
