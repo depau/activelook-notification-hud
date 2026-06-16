@@ -82,6 +82,14 @@ class NotifGlassService : Service() {
     /** Whether mirroring is enabled (the user turned it on); independent of momentary BLE state. */
     val running: StateFlow<Boolean> = _running
 
+    private val _standby = MutableStateFlow(false)
+    /**
+     * "Pause for workout": when true the BLE link is released and reconnection is suppressed so
+     * another central (e.g. a Garmin watch's ActiveLook app) can take the glasses. Orthogonal to
+     * [running] — mirroring stays "on", just paused.
+     */
+    val standby: StateFlow<Boolean> = _standby
+
     /** Human-readable glasses fonts + configurations, shown in the debug section of Settings. */
     private val _glassesInfo = MutableStateFlow("Not connected.")
     val glassesInfo: StateFlow<String> = _glassesInfo
@@ -169,6 +177,11 @@ class NotifGlassService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        when (intent?.action) {
+            ACTION_STANDBY_ON -> enterStandby()
+            ACTION_STANDBY_OFF -> exitStandby()
+            ACTION_STANDBY_TOGGLE -> if (_standby.value) exitStandby() else enterStandby()
+        }
         // Started by BootReceiver: connect now (also promotes us to foreground within the 5 s FGS
         // window). Guarded so we don't race onCreate's maybeAutoConnect().
         if (intent?.action == ACTION_START_FROM_BOOT && !shouldBeConnected) connectGlasses()
@@ -247,6 +260,7 @@ class NotifGlassService : Service() {
 
     fun connectGlasses() {
         shouldBeConnected = true
+        _standby.value = false
         _running.value = true
         _statusMessage.value = "Connecting glasses…"
         acquireWakeLock()
@@ -257,6 +271,7 @@ class NotifGlassService : Service() {
 
     fun disconnectGlasses() {
         shouldBeConnected = false
+        _standby.value = false
         _running.value = false
         _statusMessage.value = "Disconnected"
         handler.removeCallbacksAndMessages(RECONNECT_TOKEN)
@@ -267,6 +282,31 @@ class NotifGlassService : Service() {
         _glassesState.value = ConnectionState.DISCONNECTED
         releaseWakeLock()
         stopForegroundCompat()
+    }
+
+    /**
+     * Release the glasses for another app (e.g. a Garmin watch) without ending mirroring: tear down
+     * the link and suppress reconnection until [exitStandby]. Keeps the FGS + wake lock alive so the
+     * "Resume" action stays available.
+     */
+    fun enterStandby() {
+        if (!shouldBeConnected || _standby.value) return
+        _standby.value = true
+        _statusMessage.value = "Paused for workout — glasses released"
+        handler.removeCallbacksAndMessages(RECONNECT_TOKEN)
+        stopScan()
+        teardownGlasses()
+        controller.stop()
+        _glassesState.value = ConnectionState.DISCONNECTED
+        updateNotification()
+    }
+
+    /** Leave standby and reconnect to the saved glasses. */
+    fun exitStandby() {
+        if (!_standby.value) return
+        _standby.value = false
+        updateNotification()
+        if (shouldBeConnected) tryFastReconnectThenScan()
     }
 
     val isRunning: Boolean get() = shouldBeConnected
@@ -540,11 +580,11 @@ class NotifGlassService : Service() {
     }
 
     private fun scheduleReconnect() {
-        if (!shouldBeConnected) return
+        if (!shouldBeConnected || _standby.value) return
         _glassesState.value = ConnectionState.SCANNING
         handler.removeCallbacksAndMessages(RECONNECT_TOKEN)
         handler.postAtTime(
-            { if (shouldBeConnected && connectedGlasses == null) startScan() },
+            { if (shouldBeConnected && !_standby.value && connectedGlasses == null) startScan() },
             RECONNECT_TOKEN,
             SystemClock.uptimeMillis() + Const.RECONNECT_DELAY_MS,
         )
@@ -608,7 +648,7 @@ class NotifGlassService : Service() {
 
     private fun updateNotification() {
         if (!isForeground) return
-        val text = when (_glassesState.value) {
+        val text = if (_standby.value) "Paused for workout — glasses released" else when (_glassesState.value) {
             ConnectionState.CONNECTED -> "Glasses connected"
             ConnectionState.CONNECTING -> "Waiting for glasses — will connect when powered on"
             ConnectionState.SCANNING -> "Scanning for glasses…"
@@ -641,6 +681,14 @@ class NotifGlassService : Service() {
             this, 1, Intent(this, NotifGlassService::class.java).apply { action = ACTION_DISCONNECT },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val standby = _standby.value
+        val standbyIntent = PendingIntent.getService(
+            this, 2,
+            Intent(this, NotifGlassService::class.java).apply {
+                action = if (standby) ACTION_STANDBY_OFF else ACTION_STANDBY_ON
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("ActiveLook Notification HUD")
             .setContentText(text)
@@ -648,6 +696,11 @@ class NotifGlassService : Service() {
             .setContentIntent(openIntent)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
+            .addAction(
+                android.R.drawable.ic_media_pause,
+                if (standby) "Resume" else "Pause for workout",
+                standbyIntent,
+            )
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Disconnect", disconnectIntent)
             .build()
     }
@@ -683,5 +736,8 @@ class NotifGlassService : Service() {
         private val DISCOVER_TOKEN = Any()
         const val ACTION_DISCONNECT = "eu.depau.activelooknotifications.action.DISCONNECT"
         const val ACTION_START_FROM_BOOT = "eu.depau.activelooknotifications.action.START_FROM_BOOT"
+        const val ACTION_STANDBY_ON = "eu.depau.activelooknotifications.action.STANDBY_ON"
+        const val ACTION_STANDBY_OFF = "eu.depau.activelooknotifications.action.STANDBY_OFF"
+        const val ACTION_STANDBY_TOGGLE = "eu.depau.activelooknotifications.action.STANDBY_TOGGLE"
     }
 }

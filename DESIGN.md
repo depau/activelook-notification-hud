@@ -261,6 +261,15 @@ resurrected.
 
 - **`shouldBeConnected` is the source of truth for intent-to-connect**, kept separate from momentary
   BLE state. Reconnect logic only fires when the user actually wants a connection.
+- **Standby ("Pause for workout", `_standby`)** is a second gate orthogonal to `shouldBeConnected`.
+  The glasses lock to whoever connects first, so to let another central (a Garmin watch's ActiveLook
+  app) take them this app must *deliberately* release the link and stop reconnecting — passive
+  back-off can't help. `enterStandby()` tears down the link (`teardownGlasses()` → `disconnect()`)
+  and `scheduleReconnect()` early-returns while standby is set; the FGS + wake lock stay alive so the
+  "Resume" action remains available. `exitStandby()` clears the gate and fast-reconnects. There is no
+  way to *detect* a Garmin activity from the phone (no API, no notification), so this is manual:
+  driven by the FGS notification's Pause/Resume action and `ACTION_STANDBY_{ON,OFF,TOGGLE}`.
+  `connectGlasses`/`disconnectGlasses` both reset it.
 - **Fast-reconnect**: the paired `SerializedGlasses` is Java-serialized + Base64'd into DataStore;
   on reconnect the SDK connects directly (skipping a scan), falling back to a scan on any failure.
 - **Auto-connect** hops to the main thread (`handler.post`) because BLE/FGS calls require it, and
