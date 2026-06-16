@@ -33,6 +33,10 @@ object Const {
     /** Delay between glasses reconnection attempts. */
     const val RECONNECT_DELAY_MS = 5_000L
 
+    /** How long the "Paused" farewell stays on the glasses before the link is released, so the draw
+     *  has time to flush over BLE. */
+    const val PAUSE_MESSAGE_MS = 1_500L
+
     /**
      * Auto-resume from Garmin-driven standby if no "workout_running" keepalive arrives within this window
      * — guards against the watch dropping out of BLE range (or crashing) without ever sending

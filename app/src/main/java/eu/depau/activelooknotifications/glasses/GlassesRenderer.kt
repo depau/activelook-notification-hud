@@ -78,6 +78,13 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
     /** Full hardware clear + reset diff cache (used on disconnect). */
     fun clearScreen() = sink.blank()
 
+    /** One-off farewell shown right before releasing the glasses for standby. Reuses the peek layout
+     *  (status bar + title + body) so the title isn't the frame's first text — which this firmware
+     *  drops — and so we don't clear the screen (a plain diff transition). */
+    fun renderPaused(status: StatusInfo, contentYOffset: Int = 0) {
+        present(HudScreens.peek(statusModel(status, idle = false), "Paused", "Waiting for other devices to connect", contentYOffset))
+    }
+
     // --- States (same signatures the controller already calls; glyphs only on the settled frame) ---
 
     fun renderIdle(status: StatusInfo, activeNotifs: List<NotifItem>, contentYOffset: Int = 0) {

@@ -314,10 +314,23 @@ class NotifGlassService : Service() {
         _statusMessage.value = reason.statusText
         handler.removeCallbacksAndMessages(RECONNECT_TOKEN)
         stopScan()
-        teardownGlasses()
         controller.stop()
-        _glassesState.value = ConnectionState.DISCONNECTED
         updateNotification()
+
+        if (connectedGlasses != null) {
+            // Leave a "Paused" farewell on the glasses so it's clear why the HUD vanished, then
+            // release the link once the draw has had time to flush over BLE. Releasing earlier would
+            // drop the queued draw; [exitStandby] cancels this if we resume within the window.
+            controller.showPaused()
+            handler.removeCallbacksAndMessages(STANDBY_MSG_TOKEN)
+            handler.postAtTime(
+                { teardownGlasses(); _glassesState.value = ConnectionState.DISCONNECTED },
+                STANDBY_MSG_TOKEN,
+                SystemClock.uptimeMillis() + Const.PAUSE_MESSAGE_MS,
+            )
+        } else {
+            _glassesState.value = ConnectionState.DISCONNECTED
+        }
     }
 
     /**
@@ -339,10 +352,17 @@ class NotifGlassService : Service() {
     /** Leave standby and reconnect to the saved glasses. */
     fun exitStandby() {
         handler.removeCallbacksAndMessages(GARMIN_STANDBY_TOKEN)
+        handler.removeCallbacksAndMessages(STANDBY_MSG_TOKEN) // cancel a pending farewell→teardown
         if (!_standby.value) return
         _standby.value = false
         updateNotification()
-        if (shouldBeConnected) tryFastReconnectThenScan()
+        if (connectedGlasses != null) {
+            // Resumed during the farewell window — the link never dropped, so just restart the HUD.
+            _glassesState.value = ConnectionState.CONNECTED
+            controller.start()
+        } else if (shouldBeConnected) {
+            tryFastReconnectThenScan()
+        }
     }
 
     /**
@@ -774,6 +794,7 @@ class NotifGlassService : Service() {
         private val RECONNECT_TOKEN = Any()
         private val DISCOVER_TOKEN = Any()
         private val GARMIN_STANDBY_TOKEN = Any()
+        private val STANDBY_MSG_TOKEN = Any()
         const val ACTION_SHUTDOWN = "eu.depau.activelooknotifications.action.SHUTDOWN"
         const val ACTION_START_FROM_BOOT = "eu.depau.activelooknotifications.action.START_FROM_BOOT"
         const val ACTION_STANDBY_ON = "eu.depau.activelooknotifications.action.STANDBY_ON"

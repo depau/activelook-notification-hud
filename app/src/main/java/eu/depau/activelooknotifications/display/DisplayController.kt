@@ -95,6 +95,12 @@ class DisplayController(
         clockJob = null
     }
 
+    /** Render a one-off "Paused" farewell (peek layout) and leave it on screen. Call [stop] first so
+     *  the loop doesn't overdraw it. */
+    fun showPaused() {
+        scope.launch { renderer.renderPaused(currentStatus()) }
+    }
+
     fun onNewNotification(item: NotifItem) {
         events.trySend(Event.NewNotif(item))
     }
