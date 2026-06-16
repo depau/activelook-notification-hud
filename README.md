@@ -14,11 +14,13 @@ view) driven by the glasses' tap gesture. The phone UI is Jetpack Compose with M
 - **Status bar**: glasses + phone battery on the left; the time while a notification is showing,
   otherwise mobile signal + network type (only if `READ_PHONE_STATE` is granted).
 - **Idle**: a larger centered clock below the status bar.
-- The foreground-service notification has a **Disconnect** button to free the glasses for a watch.
-- **Pause for workout**: the glasses lock to whoever connects first, so to let a Garmin watch's
-  ActiveLook app drive them this app must release the BLE link and stop reconnecting (passive
-  back-off can't help — and there's no way to *detect* a workout from the phone). Toggle it manually
-  from the home-screen button or the foreground-service notification; "Resume" reconnects. See
+- **Always connects**: the app starts scanning/connecting as soon as it's opened (and on boot if
+  enabled) — there is no on/off toggle. The foreground-service notification has a **Shutdown** button
+  to stop the service and connection entirely.
+- **Pause**: the glasses lock to whoever connects first, so to let a Garmin watch's ActiveLook app
+  drive them this app must release the BLE link and stop reconnecting (passive back-off can't help —
+  and there's no way to *detect* a workout from the phone). Pause it manually from the home-screen
+  pause button or the foreground-service notification; "Resume" reconnects. See
   [Automation](#automation) to drive it from an external app.
 
 All timings, coordinates, fonts and feature flags live in

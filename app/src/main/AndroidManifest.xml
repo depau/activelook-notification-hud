@@ -48,6 +48,20 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".AppPickerActivity"
+            android:exported="false"
+            android:label="App notifications"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/Theme.NotificationHud" />
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:label="Settings"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/Theme.NotificationHud" />
+
         <service
             android:name=".service.NotifGlassService"
             android:foregroundServiceType="connectedDevice"
