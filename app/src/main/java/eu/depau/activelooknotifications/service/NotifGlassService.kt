@@ -159,16 +159,13 @@ class NotifGlassService : Service() {
         maybeAutoConnect()
     }
 
-    /** Connect on startup if the user enabled auto-connect and a device was previously paired. */
+    /**
+     * Connect on startup. The app always tries to connect (scanning if no device is saved); the only
+     * "not connecting" states are standby (paused) and shutdown. Runs on the main thread (BLE/FGS
+     * calls expect it).
+     */
     private fun maybeAutoConnect() {
-        scope.launch {
-            val auto = runCatching { settings.autoConnect.first() }.getOrDefault(true)
-            val hasSaved = runCatching { settings.serializedGlasses.first().isNotEmpty() }.getOrDefault(false)
-            if (auto && hasSaved && !shouldBeConnected) {
-                // Run on the main thread (BLE/FGS calls expect it).
-                handler.post { if (!shouldBeConnected) connectGlasses() }
-            }
-        }
+        handler.post { if (!shouldBeConnected && !_standby.value) connectGlasses() }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

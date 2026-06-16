@@ -68,7 +68,6 @@ fun SettingsScreen(
     val brightness by settings.brightness.collectAsState(initial = 12)
     val showIcon by settings.showIcon.collectAsState(initial = true)
     val animate by settings.animateTransitions.collectAsState(initial = true)
-    val autoConnect by settings.autoConnect.collectAsState(initial = true)
     val autoStartOnBoot by settings.autoStartOnBoot.collectAsState(initial = true)
     val als by settings.ambientLightSensor.collectAsState(initial = true)
     val debugBorder by settings.debugScreenBorder.collectAsState(initial = false)
@@ -158,9 +157,6 @@ fun SettingsScreen(
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             SectionTitle("Connection")
-            SwitchRow("Auto-connect on startup", "Reconnect to the last glasses automatically", autoConnect) {
-                coroutineScope.launch { settings.setAutoConnect(it) }
-            }
             SwitchRow("Start on boot", "Launch and reconnect automatically after the phone restarts", autoStartOnBoot) {
                 coroutineScope.launch { settings.setAutoStartOnBoot(it) }
             }
