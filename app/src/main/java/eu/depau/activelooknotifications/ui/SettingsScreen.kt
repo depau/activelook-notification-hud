@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
@@ -66,13 +67,14 @@ fun SettingsScreen(
     val peekMs by settings.peekTimeoutMs.collectAsState(initial = 5000L)
     val openMs by settings.openTimeoutMs.collectAsState(initial = 10000L)
     val brightness by settings.brightness.collectAsState(initial = 12)
-    val showIcon by settings.showIcon.collectAsState(initial = true)
     val animate by settings.animateTransitions.collectAsState(initial = true)
     val autoStartOnBoot by settings.autoStartOnBoot.collectAsState(initial = true)
     val als by settings.ambientLightSensor.collectAsState(initial = true)
     val debugBorder by settings.debugScreenBorder.collectAsState(initial = false)
     val hideMinimized by settings.hideMinimized.collectAsState(initial = false)
     val allowExternalStandby by settings.allowExternalStandby.collectAsState(initial = false)
+    val devices by (service?.availableDevices ?: MutableStateFlow(emptyList<NotifGlassService.GlassesDevice>()))
+        .collectAsState(initial = emptyList())
 
     val context = LocalContext.current
     val versionName = remember {
@@ -81,6 +83,7 @@ fun SettingsScreen(
     }
     var tapCount by remember { mutableIntStateOf(0) }
     var debugUnlocked by remember { mutableStateOf(false) }
+    var showTimingDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -102,28 +105,46 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SectionTitle("Timing")
-            SliderRow(
-                label = "App name splash",
-                valueText = "%.1f s".format(appNameMs / 1000f),
-                value = appNameMs.toFloat(),
-                range = 500f..5000f,
-                onChange = { coroutineScope.launch { settings.setAppNameDurationMs(it.roundToLong(250)) } },
+            SectionTitle("Connection")
+            run {
+                var deviceMenuOpen by remember { mutableStateOf(false) }
+                ListItem(
+                    headlineContent = { Text("Glasses device") },
+                    supportingContent = { Text("Pick which glasses to connect to") },
+                    trailingContent = {
+                        Box {
+                            TextButton(onClick = { deviceMenuOpen = true; service?.scanForDevices() }) { Text("Choose") }
+                            DropdownMenu(expanded = deviceMenuOpen, onDismissRequest = { deviceMenuOpen = false }) {
+                                if (devices.isEmpty()) {
+                                    DropdownMenuItem(text = { Text("Scanning…") }, onClick = {}, enabled = false)
+                                } else {
+                                    devices.forEach { d ->
+                                        DropdownMenuItem(
+                                            text = { Text(d.name) },
+                                            onClick = { deviceMenuOpen = false; service?.selectDevice(d.address) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+            }
+            ListItem(
+                headlineContent = { Text("Forget device") },
+                supportingContent = { Text("Clear the saved glasses and scan fresh") },
+                trailingContent = {
+                    TextButton(onClick = { service?.forgetGlasses() }) { Text("Forget") }
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
-            SliderRow(
-                label = "Peek timeout",
-                valueText = "%.0f s".format(peekMs / 1000f),
-                value = peekMs.toFloat(),
-                range = 2000f..15000f,
-                onChange = { coroutineScope.launch { settings.setPeekTimeoutMs(it.roundToLong(500)) } },
-            )
-            SliderRow(
-                label = "Open timeout",
-                valueText = "%.0f s".format(openMs / 1000f),
-                value = openMs.toFloat(),
-                range = 5000f..30000f,
-                onChange = { coroutineScope.launch { settings.setOpenTimeoutMs(it.roundToLong(1000)) } },
-            )
+            SwitchRow("Start on boot", "Launch and reconnect automatically after the phone restarts", autoStartOnBoot) {
+                coroutineScope.launch { settings.setAutoStartOnBoot(it) }
+            }
+            SwitchRow("Allow other apps to pause", "Let external apps (e.g. Tasker) pause/resume the HUD via broadcast", allowExternalStandby) {
+                coroutineScope.launch { settings.setAllowExternalStandby(it) }
+            }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             SectionTitle("Display")
@@ -142,9 +163,14 @@ fun SettingsScreen(
                 steps = 14,
                 onChange = { coroutineScope.launch { settings.setBrightness(it.roundToInt()) } },
             )
-            SwitchRow("Show app icon", "Display the app's icon on the splash", showIcon) {
-                coroutineScope.launch { settings.setShowIcon(it) }
-            }
+            ListItem(
+                headlineContent = { Text("Timing") },
+                supportingContent = { Text("Splash, peek & open durations") },
+                trailingContent = {
+                    TextButton(onClick = { showTimingDialog = true }) { Text("Adjust") }
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            )
             SwitchRow("Animate transitions", "Slide between screens on the glasses", animate) {
                 coroutineScope.launch { settings.setAnimateTransitions(it) }
             }
@@ -153,15 +179,6 @@ fun SettingsScreen(
             SectionTitle("Notifications")
             SwitchRow("Hide minimized notifications", "Do not mirror notifications with minimized or low importance", hideMinimized) {
                 coroutineScope.launch { settings.setHideMinimized(it) }
-            }
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            SectionTitle("Connection")
-            SwitchRow("Start on boot", "Launch and reconnect automatically after the phone restarts", autoStartOnBoot) {
-                coroutineScope.launch { settings.setAutoStartOnBoot(it) }
-            }
-            SwitchRow("Allow other apps to pause", "Let external apps (e.g. Tasker) pause/resume the HUD for a workout via broadcast", allowExternalStandby) {
-                coroutineScope.launch { settings.setAllowExternalStandby(it) }
             }
 
             if (!hasPhoneState) {
@@ -254,6 +271,39 @@ fun SettingsScreen(
                     }
                     .padding(vertical = 12.dp),
                 textAlign = TextAlign.Center,
+            )
+        }
+
+        if (showTimingDialog) {
+            AlertDialog(
+                onDismissRequest = { showTimingDialog = false },
+                confirmButton = { TextButton(onClick = { showTimingDialog = false }) { Text("Done") } },
+                title = { Text("Timing") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SliderRow(
+                            label = "App name splash",
+                            valueText = "%.1f s".format(appNameMs / 1000f),
+                            value = appNameMs.toFloat(),
+                            range = 500f..5000f,
+                            onChange = { coroutineScope.launch { settings.setAppNameDurationMs(it.roundToLong(250)) } },
+                        )
+                        SliderRow(
+                            label = "Peek timeout",
+                            valueText = "%.0f s".format(peekMs / 1000f),
+                            value = peekMs.toFloat(),
+                            range = 2000f..15000f,
+                            onChange = { coroutineScope.launch { settings.setPeekTimeoutMs(it.roundToLong(500)) } },
+                        )
+                        SliderRow(
+                            label = "Open timeout",
+                            valueText = "%.0f s".format(openMs / 1000f),
+                            value = openMs.toFloat(),
+                            range = 5000f..30000f,
+                            onChange = { coroutineScope.launch { settings.setOpenTimeoutMs(it.roundToLong(1000)) } },
+                        )
+                    }
+                },
             )
         }
     }
