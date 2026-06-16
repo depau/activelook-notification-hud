@@ -1,12 +1,12 @@
 package eu.depau.activelooknotifications.glasses
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.util.LruCache
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.NetworkWifi1Bar
 import androidx.compose.material.icons.rounded.NetworkWifi2Bar
 import androidx.compose.material.icons.rounded.NetworkWifi3Bar
@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.GMobiledata
 import androidx.compose.material.icons.rounded.HMobiledata
 import androidx.compose.material.icons.rounded.HPlusMobiledata
 import androidx.compose.material.icons.rounded.RMobiledata
+import eu.depau.activelooknotifications.R
 import eu.depau.activelooknotifications.phone.NetworkType
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -36,7 +37,9 @@ import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.vector.VectorGroup
 import androidx.compose.ui.graphics.vector.VectorNode
 import androidx.compose.ui.graphics.vector.VectorPath
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
+import kotlin.math.roundToInt
 
 /**
  * Rasterizes Material Symbols (Rounded) [ImageVector]s from `material-icons-extended` into small
@@ -45,13 +48,25 @@ import androidx.core.graphics.createBitmap
  * 15) / OFF, matching [AndroidGlyphRasterizer]/[IconRasterizer]. Results are cached so an unchanged
  * level returns the **same** Bitmap instance and the renderer's Differ skips the redraw.
  */
-class StatusIcons {
+class StatusIcons(private val context: Context) {
 
     private val cache = LruCache<String, Bitmap>(16)
 
     fun smartphone(px: Int): Bitmap = get("phone", px) { Icons.Rounded.Smartphone }
 
-    fun bluetooth(px: Int): Bitmap = get("bt", px) { Icons.Rounded.Bluetooth }
+    /** ActiveLook glasses logo (wide vector drawable; [px] is its width, height follows aspect). */
+    fun glasses(px: Int): Bitmap {
+        val ck = "glasses@$px"
+        cache.get(ck)?.let { return it }
+        val d = ContextCompat.getDrawable(context, R.drawable.ic_glasses)!!
+        val height = (px.toFloat() * d.intrinsicHeight / d.intrinsicWidth).roundToInt().coerceAtLeast(1)
+        val src = createBitmap(px, height)
+        d.setBounds(0, 0, px, height)
+        d.draw(Canvas(src))
+        val out = toMono(src)
+        cache.put(ck, out)
+        return out
+    }
 
     fun roaming(px: Int): Bitmap = get("roaming", px) { Icons.Rounded.RMobiledata }
 
@@ -125,23 +140,32 @@ class StatusIcons {
         return bmp
     }
 
-    private fun rasterize(image: ImageVector, size: Int): Bitmap {
-        val src = createBitmap(size, size)
+    /** Rasterize to [height] px, scaling uniformly so the aspect ratio is preserved. */
+    private fun rasterize(image: ImageVector, height: Int): Bitmap {
+        val scale = height / image.viewportHeight
+        val width = (image.viewportWidth * scale).roundToInt().coerceAtLeast(1)
+        val src = createBitmap(width, height)
         val canvas = Canvas(src)
-        canvas.scale(size / image.viewportWidth, size / image.viewportHeight)
+        canvas.scale(scale, scale)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
             color = Color.WHITE
         }
         renderGroup(image.root, canvas, paint)
+        return toMono(src)
+    }
 
-        val pixels = IntArray(size * size)
-        src.getPixels(pixels, 0, size, 0, 0, size, size)
+    /** Alpha-threshold an anti-aliased [src] to ON (0xF0F0F0) / OFF; recycles [src]. */
+    private fun toMono(src: Bitmap): Bitmap {
+        val w = src.width
+        val h = src.height
+        val pixels = IntArray(w * h)
+        src.getPixels(pixels, 0, w, 0, 0, w, h)
         for (i in pixels.indices) {
             pixels[i] = if (Color.alpha(pixels[i]) >= ALPHA_THRESHOLD) ON else OFF
         }
-        val out = createBitmap(size, size)
-        out.setPixels(pixels, 0, size, 0, 0, size, size)
+        val out = createBitmap(w, h)
+        out.setPixels(pixels, 0, w, 0, 0, w, h)
         src.recycle()
         return out
     }

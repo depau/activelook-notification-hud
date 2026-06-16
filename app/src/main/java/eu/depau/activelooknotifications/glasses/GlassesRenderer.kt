@@ -42,7 +42,7 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
     )
     private val measurer = GlassesTextMeasurer(metrics, fonts)
     private val shaper = TextSpanParserImpl(fonts, AndroidGlyphRasterizer(context))
-    private val statusIcons = StatusIcons()
+    private val statusIcons = StatusIcons(context)
     private val solver = LayoutSolver(measurer, parser = shaper)
     private val sink = ActiveLookSink(
         differ = Differ(
@@ -143,7 +143,7 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
     private fun statusModel(status: StatusInfo, idle: Boolean): StatusBarModel {
         val px = fontPx(FontToken.Small)
         val glasses =
-            status.glassesBattery?.let { BatteryViz("bt", statusIcons.bluetooth(px), "$it%") }
+            status.glassesBattery?.let { BatteryViz("glasses", statusIcons.glasses(px+4), "$it%") }
         val phone = BatteryViz("phone", statusIcons.smartphone(px), "${status.phoneBattery}%")
         val right: StatusRight = if (!idle) {
             StatusRight.Time(status.time)

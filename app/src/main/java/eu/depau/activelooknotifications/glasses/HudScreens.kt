@@ -18,7 +18,6 @@ import eu.depau.glasslayout.core.model.ScrollOffset
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.roundToInt
 
 /**
  * Builds the four HUD states as flex element trees in logical coordinates. Text content is supplied
@@ -268,7 +267,7 @@ object HudScreens {
 
     private fun ChildrenScope.batteryViz(b: BatteryViz, fontPx: Int) {
         row(spacing = Const.STATUS_PCT_GAP, cross = CrossAlign.Center) {
-            image(payload = b.bitmap, w = fontPx, h = fontPx)
+            image(payload = b.bitmap, w = b.bitmap.width, h = b.bitmap.height)
             if (b.percent.isNotEmpty()) text(b.percent, font = FontToken.Small)
         }
     }

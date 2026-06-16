@@ -193,8 +193,9 @@ cell), other scripts via system fallback. LRU-cached (64 entries) keyed `run@fon
 - `IconRasterizer`: launcher/notification `Drawable` → small mono bitmap. Pre-thresholds to pure B/W
   (composite over black, luminance, threshold `ICON_THRESHOLD`) because the SDK's own grayscale
   reduction looks muddy.
-- `StatusIcons`: rasterizes Material Symbols `ImageVector`s directly (no asset bundling, no
-  Context).
+- `StatusIcons`: rasterizes Material Symbols `ImageVector`s directly (no asset bundling), plus the
+  `ic_glasses` logo drawable (via `Context`) used for the glasses battery. Aspect ratio is preserved
+  (width = font px, height follows), since the logo is wide and short.
   **Caching is load-bearing**: an unchanged signal/battery level returns the *same* Bitmap instance
   so the differ skips the redraw.
 - `StatusBarModel`: a resolved-but-not-laid-out description handed to the screen builders, keeping
