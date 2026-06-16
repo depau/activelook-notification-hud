@@ -43,6 +43,9 @@ class SettingsRepository(private val context: Context) {
     val debugScreenBorder: Flow<Boolean> = ds.data.map { it[KEY_DEBUG_BORDER] ?: false }
     val hideMinimized: Flow<Boolean> = ds.data.map { it[KEY_HIDE_MINIMIZED] ?: true }
 
+    /** Allow external apps (Tasker etc.) to toggle "pause for workout" via broadcast. */
+    val allowExternalStandby: Flow<Boolean> = ds.data.map { it[KEY_ALLOW_EXTERNAL_STANDBY] ?: false }
+
     /** Glasses configuration to activate on connect (cfgSet). "ALooK" is the documented default. */
     val glassesConfig: Flow<String> = ds.data.map { it[KEY_GLASSES_CONFIG] ?: "ALooK" }
 
@@ -72,6 +75,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDebugPreview(value: Boolean) = ds.edit { it[KEY_DEBUG_PREVIEW] = value }
     suspend fun setSerializedGlasses(value: String) = ds.edit { it[KEY_SERIALIZED_GLASSES] = value }
     suspend fun setHideMinimized(value: Boolean) = ds.edit { it[KEY_HIDE_MINIMIZED] = value }
+    suspend fun setAllowExternalStandby(value: Boolean) = ds.edit { it[KEY_ALLOW_EXTERNAL_STANDBY] = value }
 
     companion object {
         private val KEY_ALLOWED = stringSetPreferencesKey("allowed_packages")
@@ -90,5 +94,6 @@ class SettingsRepository(private val context: Context) {
         private val KEY_DEBUG_PREVIEW = booleanPreferencesKey("debug_preview")
         private val KEY_SERIALIZED_GLASSES = stringPreferencesKey("serialized_glasses")
         private val KEY_HIDE_MINIMIZED = booleanPreferencesKey("hide_minimized")
+        private val KEY_ALLOW_EXTERNAL_STANDBY = booleanPreferencesKey("allow_external_standby")
     }
 }

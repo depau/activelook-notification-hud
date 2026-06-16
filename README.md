@@ -15,6 +15,11 @@ view) driven by the glasses' tap gesture. The phone UI is Jetpack Compose with M
   otherwise mobile signal + network type (only if `READ_PHONE_STATE` is granted).
 - **Idle**: a larger centered clock below the status bar.
 - The foreground-service notification has a **Disconnect** button to free the glasses for a watch.
+- **Pause for workout**: the glasses lock to whoever connects first, so to let a Garmin watch's
+  ActiveLook app drive them this app must release the BLE link and stop reconnecting (passive
+  back-off can't help — and there's no way to *detect* a workout from the phone). Toggle it manually
+  from the home-screen button or the foreground-service notification; "Resume" reconnects. See
+  [Automation](#automation) to drive it from an external app.
 
 All timings, coordinates, fonts and feature flags live in
 [`Const.kt`](app/src/main/java/eu/depau/activelooknotifications/Const.kt).
@@ -69,6 +74,27 @@ Constants in `Const.kt` are now grounded in the docs, but a few pixel offsets ma
 - Timeouts (app splash / peek / open), brightness, show-icon, animate, auto-connect, start-on-boot.
 - Mobile signal + network type on the idle screen only appears if `READ_PHONE_STATE` is granted
   (grant it from Settings; otherwise the right side of the idle bar is blank).
+
+## Automation
+
+"Pause for workout" can be toggled by an **explicit broadcast** to `StandbyReceiver`, so an
+automation app (Tasker, MacroDroid) can engage it when an activity starts and release it when it
+ends. Send one of these actions to package `eu.depau.activelooknotifications`:
+
+- `eu.depau.activelooknotifications.action.STANDBY_ON` — release the glasses
+- `eu.depau.activelooknotifications.action.STANDBY_OFF` — reconnect
+- `eu.depau.activelooknotifications.action.STANDBY_TOGGLE`
+
+(In Tasker: *Send Intent* → Action = one of the above, Target = Broadcast Receiver, Package set.)
+The HUD must be running (foreground service active), and **"Allow other apps to pause"** must be
+enabled in Settings (off by default), for the command to take effect.
+
+**Garmin Connect IQ path (not built — a separate project):** since no API or notification exposes
+"activity ongoing" to the phone, the only fully-automatic option is a Garmin **watch app/widget**
+(not a plain *data field* — those are too sandboxed to use `Communications.transmit` reliably) that,
+via the free **Connect IQ Mobile SDK**, messages this app on activity start/stop to fire the standby
+broadcast above. That means a Monkey C watch project plus integrating the ConnectIQ Android library
+and a shared app UUID — meaningful effort, hence left as a future option.
 
 ## Build
 

@@ -73,6 +73,7 @@ fun SettingsScreen(
     val als by settings.ambientLightSensor.collectAsState(initial = true)
     val debugBorder by settings.debugScreenBorder.collectAsState(initial = false)
     val hideMinimized by settings.hideMinimized.collectAsState(initial = false)
+    val allowExternalStandby by settings.allowExternalStandby.collectAsState(initial = false)
 
     val context = LocalContext.current
     val versionName = remember {
@@ -162,6 +163,9 @@ fun SettingsScreen(
             }
             SwitchRow("Start on boot", "Launch and reconnect automatically after the phone restarts", autoStartOnBoot) {
                 coroutineScope.launch { settings.setAutoStartOnBoot(it) }
+            }
+            SwitchRow("Allow other apps to pause", "Let external apps (e.g. Tasker) pause/resume the HUD for a workout via broadcast", allowExternalStandby) {
+                coroutineScope.launch { settings.setAllowExternalStandby(it) }
             }
 
             if (!hasPhoneState) {
