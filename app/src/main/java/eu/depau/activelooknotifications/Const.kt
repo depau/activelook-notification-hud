@@ -119,7 +119,6 @@ object Const {
 
     // --- Defaults / feature flags ---
     const val DEFAULT_BRIGHTNESS = 12
-    const val SHOW_ICON = true
     const val SHOW_ONGOING = false
     const val ANIMATE_TRANSITIONS = true
 

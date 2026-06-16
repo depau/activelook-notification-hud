@@ -63,8 +63,7 @@ Constants in `Const.kt` are now grounded in the docs, but a few pixel offsets ma
 - **Image anchor** — `APP_ICON_TOP_Y` assumes the image (x,y) is its bottom-left; adjust if the
   splash icon sits wrong.
 - **Animation** — `ANIM_FRAMES`/`ANIM_FRAME_MS`/`ANIM_TRAVEL`; set `ANIM_FRAMES=1` for instant.
-- **Icons** — uses the notification's monochrome small icon; raise `ICON_THRESHOLD` or turn off
-  "Show app icon" in Settings if any look muddy.
+- **Icons** — uses the notification's monochrome small icon; raise `ICON_THRESHOLD` if any look muddy.
 
 ## Settings
 

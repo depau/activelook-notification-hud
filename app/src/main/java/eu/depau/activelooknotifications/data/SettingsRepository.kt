@@ -36,7 +36,6 @@ class SettingsRepository(private val context: Context) {
     val peekTimeoutMs: Flow<Long> = ds.data.map { it[KEY_PEEK_MS] ?: Const.PEEK_TIMEOUT_MS }
     val openTimeoutMs: Flow<Long> = ds.data.map { it[KEY_OPEN_MS] ?: Const.OPEN_TIMEOUT_MS }
     val brightness: Flow<Int> = ds.data.map { it[KEY_BRIGHTNESS] ?: Const.DEFAULT_BRIGHTNESS }
-    val showIcon: Flow<Boolean> = ds.data.map { it[KEY_SHOW_ICON] ?: Const.SHOW_ICON }
     val animateTransitions: Flow<Boolean> = ds.data.map { it[KEY_ANIMATE] ?: Const.ANIMATE_TRANSITIONS }
     val autoStartOnBoot: Flow<Boolean> = ds.data.map { it[KEY_AUTO_START_ON_BOOT] ?: true }
     val debugScreenBorder: Flow<Boolean> = ds.data.map { it[KEY_DEBUG_BORDER] ?: false }
@@ -65,7 +64,6 @@ class SettingsRepository(private val context: Context) {
     suspend fun setPeekTimeoutMs(value: Long) = ds.edit { it[KEY_PEEK_MS] = value }
     suspend fun setOpenTimeoutMs(value: Long) = ds.edit { it[KEY_OPEN_MS] = value }
     suspend fun setBrightness(value: Int) = ds.edit { it[KEY_BRIGHTNESS] = value }
-    suspend fun setShowIcon(value: Boolean) = ds.edit { it[KEY_SHOW_ICON] = value }
     suspend fun setAnimateTransitions(value: Boolean) = ds.edit { it[KEY_ANIMATE] = value }
     suspend fun setAutoStartOnBoot(value: Boolean) = ds.edit { it[KEY_AUTO_START_ON_BOOT] = value }
     suspend fun setDebugScreenBorder(value: Boolean) = ds.edit { it[KEY_DEBUG_BORDER] = value }
@@ -83,7 +81,6 @@ class SettingsRepository(private val context: Context) {
         private val KEY_PEEK_MS = longPreferencesKey("peek_timeout_ms")
         private val KEY_OPEN_MS = longPreferencesKey("open_timeout_ms")
         private val KEY_BRIGHTNESS = intPreferencesKey("brightness")
-        private val KEY_SHOW_ICON = booleanPreferencesKey("show_icon")
         private val KEY_ANIMATE = booleanPreferencesKey("animate_transitions")
         private val KEY_AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
         private val KEY_DEBUG_BORDER = booleanPreferencesKey("debug_screen_border")

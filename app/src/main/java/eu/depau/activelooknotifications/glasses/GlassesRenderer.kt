@@ -23,7 +23,7 @@ import eu.depau.glasslayout.core.render.RenderCommand
 /**
  * Façade over the glasslayout engine. Keeps the imperative API the [eu.depau.activelooknotifications.display.DisplayController]
  * already calls (`renderIdle/AppPresent/Peek/NotifList`, `setFonts`,
- * `setBrightness`, `showIcon`, `debugBorder`, `glasses`, `clearScreen`). Internally each render builds
+ * `setBrightness`, `debugBorder`, `glasses`, `clearScreen`). Internally each render builds
  * a core [Element] tree, solves it, and presents it through the partial-redraw [ActiveLookSink].
  */
 class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
@@ -54,9 +54,6 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
         transform = DeviceTransform(Const.SCREEN_W, Const.SCREEN_H),
         fonts = fonts,
     )
-
-    @Volatile
-    var showIcon: Boolean = Const.SHOW_ICON
 
     @Volatile
     var debugBorder: Boolean = false
@@ -100,7 +97,7 @@ class GlassesRenderer(metrics: GlassesTextMetrics, context: Context) {
             HudScreens.appPresent(
                 statusModel(status, idle = false),
                 notif.appName,
-                if (showIcon) iconBitmap else null,
+                iconBitmap,
                 contentYOffset
             )
         )

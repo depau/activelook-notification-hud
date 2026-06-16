@@ -200,7 +200,6 @@ class NotifGlassService : Service() {
         scope.launch { settings.peekTimeoutMs.collect { controller.peekTimeoutMs = it } }
         scope.launch { settings.openTimeoutMs.collect { controller.openTimeoutMs = it } }
         scope.launch { settings.animateTransitions.collect { controller.animate = it } }
-        scope.launch { settings.showIcon.collect { renderer.showIcon = it } }
         scope.launch {
             settings.glassesConfig.collect { name ->
                 val changed = name != glassesConfigName
