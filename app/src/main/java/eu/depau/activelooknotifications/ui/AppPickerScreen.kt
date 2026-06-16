@@ -68,7 +68,7 @@ fun AppPickerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Apps to mirror") },
+                title = { Text("App notifications") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

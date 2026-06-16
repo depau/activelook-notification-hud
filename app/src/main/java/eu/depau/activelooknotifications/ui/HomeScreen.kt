@@ -1,5 +1,7 @@
 package eu.depau.activelooknotifications.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,36 +14,28 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import eu.depau.activelooknotifications.service.NotifGlassService
 import eu.depau.activelooknotifications.service.NotifGlassService.ConnectionState
 
@@ -69,37 +63,27 @@ fun HomeScreen(
                 return@Column
             }
 
-            val running by service.running.collectAsState()
             val state by service.glassesState.collectAsState()
             val status by service.statusMessage.collectAsState()
-            val devices by service.availableDevices.collectAsState()
             val standby by service.standby.collectAsState()
 
-            // Reflect connectivity even if the user-intent flag and BLE state momentarily disagree.
-            val connectionOn = running || state != ConnectionState.DISCONNECTED
             ConnectionCard(
-                running = connectionOn,
                 state = state,
                 status = status,
-                devices = devices,
                 standby = standby,
-                onToggle = { on -> if (on) service.connectGlasses() else service.disconnectGlasses() },
                 onStandbyToggle = { if (standby) service.exitStandby() else service.enterStandby() },
-                onForget = { service.forgetGlasses() },
-                onScanDevices = { service.scanForDevices() },
-                onSelectDevice = { service.selectDevice(it) },
             )
 
             NavRow(
                 icon = Icons.Default.Apps,
-                title = "Apps to mirror",
+                title = "App notifications",
                 subtitle = "Choose which apps appear on the glasses",
                 onClick = onOpenApps,
             )
             NavRow(
                 icon = Icons.Default.Settings,
                 title = "Settings",
-                subtitle = "Timeouts, brightness, animation",
+                subtitle = "Connection, display, notifications",
                 onClick = onOpenSettings,
             )
 
@@ -115,16 +99,10 @@ fun HomeScreen(
 
 @Composable
 private fun ConnectionCard(
-    running: Boolean,
     state: ConnectionState,
     status: String,
-    devices: List<NotifGlassService.GlassesDevice>,
     standby: Boolean,
-    onToggle: (Boolean) -> Unit,
     onStandbyToggle: () -> Unit,
-    onForget: () -> Unit,
-    onScanDevices: () -> Unit,
-    onSelectDevice: (String) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -142,38 +120,19 @@ private fun ConnectionCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Switch(checked = running, onCheckedChange = onToggle)
+                FilledTonalIconButton(onClick = onStandbyToggle) {
+                    if (standby) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = "Resume")
+                    } else {
+                        Icon(Icons.Default.Pause, contentDescription = "Pause")
+                    }
+                }
             }
             Text(
                 status,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (running) {
-                FilledTonalButton(onClick = onStandbyToggle, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (standby) "Resume mirroring" else "Pause for workout")
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-                var menuOpen by remember { mutableStateOf(false) }
-                Box {
-                    TextButton(onClick = { menuOpen = true; onScanDevices() }) { Text("Choose device") }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        if (devices.isEmpty()) {
-                            DropdownMenuItem(text = { Text("Scanning…") }, onClick = {}, enabled = false)
-                        } else {
-                            devices.forEach { d ->
-                                DropdownMenuItem(
-                                    text = { Text(d.name) },
-                                    onClick = { menuOpen = false; onSelectDevice(d.address) },
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = onForget) { Text("Forget device") }
-            }
         }
     }
 }
