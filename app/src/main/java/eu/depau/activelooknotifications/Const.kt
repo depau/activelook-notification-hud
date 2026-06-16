@@ -45,6 +45,10 @@ object Const {
      */
     const val GARMIN_STANDBY_TIMEOUT_MS = 90_000L
 
+    /** Capacitive-button short press releases the glasses for this long so another central can
+     *  connect, then the app auto-reconnects. */
+    const val BUTTON_RELEASE_MS = 10_000L
+
     // --- Glasses display geometry (px) ---
     // Coordinate model (from the ActiveLook reference): origin bottom-left, y measured upward
     // (0..256), but txt(x, y) anchors the TOP of the glyph row, so text hangs DOWNWARD from y.

@@ -10,6 +10,8 @@ import android.app.Service
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
@@ -71,6 +73,7 @@ class NotifGlassService : Service() {
         MANUAL("Paused manually — glasses released"),
         EXTERNAL("Paused by another app — glasses released"),
         GARMIN("Paused by Garmin watch — glasses released"),
+        BUTTON("Released for 10 s — another device can connect"),
     }
 
     private val binder = LocalBinder()
@@ -349,6 +352,20 @@ class NotifGlassService : Service() {
         )
     }
 
+    /**
+     * Capacitive-button short press: release the glasses for [Const.BUTTON_RELEASE_MS] so another
+     * central can connect, then auto-reconnect. Mirrors [onGarminWorkoutActive]'s release+fail-safe.
+     */
+    fun onButtonRelease() {
+        enterStandby(StandbyReason.BUTTON)
+        handler.removeCallbacksAndMessages(BUTTON_STANDBY_TOKEN)
+        handler.postAtTime(
+            { exitStandby() },
+            BUTTON_STANDBY_TOKEN,
+            SystemClock.uptimeMillis() + Const.BUTTON_RELEASE_MS,
+        )
+    }
+
     /** Leave standby and reconnect to the saved glasses. */
     fun exitStandby() {
         handler.removeCallbacksAndMessages(GARMIN_STANDBY_TOKEN)
@@ -607,8 +624,11 @@ class NotifGlassService : Service() {
     }
 
     /**
-     * Open a throwaway GATT to the same device only to request a fast connection interval. The
-     * interval is a property of the shared ACL link, so the SDK's own connection inherits it.
+     * Open a second GATT to the same device. Primarily to request a fast connection interval (the
+     * interval is a property of the shared ACL link, so the SDK's own connection inherits it), but
+     * it also subscribes to the capacitive-button / Touch Event characteristic ([UI_CHARACTERISTIC]):
+     * the SDK enables that characteristic on the peripheral but exposes no callback for it, and each
+     * Android GATT client gets its own notifications, so we read the button here.
      * Best-effort; failures are ignored. Requires BLUETOOTH_CONNECT on API 31+.
      */
     @SuppressLint("MissingPermission")
@@ -622,6 +642,29 @@ class NotifGlassService : Service() {
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
                         runCatching { g.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH) }
                         Log.d(TAG, "Requested high BLE connection priority")
+                        runCatching { g.discoverServices() }
+                    }
+                }
+
+                override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
+                    val uiChar = g.getService(COMMAND_INTERFACE_SERVICE)
+                        ?.getCharacteristic(UI_CHARACTERISTIC) ?: return
+                    runCatching {
+                        g.setCharacteristicNotification(uiChar, true)
+                        // Idempotent with the SDK's own enable; keeps this connection self-contained.
+                        uiChar.getDescriptor(CCCD_DESCRIPTOR)?.apply {
+                            value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                            g.writeDescriptor(this)
+                        }
+                    }.onFailure { Log.w(TAG, "button subscribe failed", it) }
+                }
+
+                @Deprecated("Classic onCharacteristicChanged; the byte[] overload is API 33+ only")
+                override fun onCharacteristicChanged(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+                    if (characteristic.uuid == UI_CHARACTERISTIC) {
+                        Log.i(TAG, "Capacitive button: ${characteristic.value?.joinToString(" ") { "0x%02x".format(it) }}")
+                        // Hop off the BLE binder thread: onButtonRelease touches controller/handler/state.
+                        handler.post { onButtonRelease() }
                     }
                 }
             })
@@ -791,9 +834,15 @@ class NotifGlassService : Service() {
         private const val TAG = "NotifGlassService"
         private const val CHANNEL_ID = "NotifGlassServiceChannel"
         private const val NOTIFICATION_ID = 7421
+        // ActiveLook command-interface service + Touch Event ("user data server") characteristic
+        // and the standard CCCD; we subscribe to the latter for the capacitive button (value 0x01).
+        private val COMMAND_INTERFACE_SERVICE = java.util.UUID.fromString("0783b03e-8535-b5a0-7140-a304d2495cb7")
+        private val UI_CHARACTERISTIC = java.util.UUID.fromString("0783b03e-8535-b5a0-7140-a304d2495cbc")
+        private val CCCD_DESCRIPTOR = java.util.UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
         private val RECONNECT_TOKEN = Any()
         private val DISCOVER_TOKEN = Any()
         private val GARMIN_STANDBY_TOKEN = Any()
+        private val BUTTON_STANDBY_TOKEN = Any()
         private val STANDBY_MSG_TOKEN = Any()
         const val ACTION_SHUTDOWN = "eu.depau.activelooknotifications.action.SHUTDOWN"
         const val ACTION_START_FROM_BOOT = "eu.depau.activelooknotifications.action.START_FROM_BOOT"
