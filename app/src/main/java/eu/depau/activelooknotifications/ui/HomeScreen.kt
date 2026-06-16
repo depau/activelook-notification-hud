@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -72,6 +73,7 @@ fun HomeScreen(
             val state by service.glassesState.collectAsState()
             val status by service.statusMessage.collectAsState()
             val devices by service.availableDevices.collectAsState()
+            val standby by service.standby.collectAsState()
 
             // Reflect connectivity even if the user-intent flag and BLE state momentarily disagree.
             val connectionOn = running || state != ConnectionState.DISCONNECTED
@@ -80,7 +82,9 @@ fun HomeScreen(
                 state = state,
                 status = status,
                 devices = devices,
+                standby = standby,
                 onToggle = { on -> if (on) service.connectGlasses() else service.disconnectGlasses() },
+                onStandbyToggle = { if (standby) service.exitStandby() else service.enterStandby() },
                 onForget = { service.forgetGlasses() },
                 onScanDevices = { service.scanForDevices() },
                 onSelectDevice = { service.selectDevice(it) },
@@ -115,7 +119,9 @@ private fun ConnectionCard(
     state: ConnectionState,
     status: String,
     devices: List<NotifGlassService.GlassesDevice>,
+    standby: Boolean,
     onToggle: (Boolean) -> Unit,
+    onStandbyToggle: () -> Unit,
     onForget: () -> Unit,
     onScanDevices: () -> Unit,
     onSelectDevice: (String) -> Unit,
@@ -143,6 +149,11 @@ private fun ConnectionCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (running) {
+                FilledTonalButton(onClick = onStandbyToggle, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (standby) "Resume mirroring" else "Pause for workout")
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
                 var menuOpen by remember { mutableStateOf(false) }
                 Box {
