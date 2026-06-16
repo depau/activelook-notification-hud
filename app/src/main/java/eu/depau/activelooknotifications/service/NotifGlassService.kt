@@ -58,7 +58,7 @@ import java.io.ObjectOutputStream
  * Foreground service that owns the glasses connection and drives the [DisplayController].
  *
  * Connection lifecycle mirrors the multimeter app's proven pattern (scan / connect / token-based
- * reconnect / WakeLock / FGS notification with a Disconnect action), extended with: fast reconnect
+ * reconnect / WakeLock / FGS notification with a Shutdown action), extended with: fast reconnect
  * via a persisted [SerializedGlasses], gesture + battery subscriptions, phone status, and the
  * notification → glasses pipeline collected from [NotifRepository].
  */
@@ -84,7 +84,7 @@ class NotifGlassService : Service() {
 
     private val _standby = MutableStateFlow(false)
     /**
-     * "Pause for workout": when true the BLE link is released and reconnection is suppressed so
+     * "Pause": when true the BLE link is released and reconnection is suppressed so
      * another central (e.g. a Garmin watch's ActiveLook app) can take the glasses. Orthogonal to
      * [running] — mirroring stays "on", just paused.
      */
@@ -169,7 +169,7 @@ class NotifGlassService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_DISCONNECT) {
+        if (intent?.action == ACTION_SHUTDOWN) {
             disconnectGlasses()
             stopSelf()
             return START_NOT_STICKY
@@ -289,7 +289,7 @@ class NotifGlassService : Service() {
     fun enterStandby() {
         if (!shouldBeConnected || _standby.value) return
         _standby.value = true
-        _statusMessage.value = "Paused for workout — glasses released"
+        _statusMessage.value = "Paused — glasses released"
         handler.removeCallbacksAndMessages(RECONNECT_TOKEN)
         stopScan()
         teardownGlasses()
@@ -645,7 +645,7 @@ class NotifGlassService : Service() {
 
     private fun updateNotification() {
         if (!isForeground) return
-        val text = if (_standby.value) "Paused for workout — glasses released" else when (_glassesState.value) {
+        val text = if (_standby.value) "Paused — glasses released" else when (_glassesState.value) {
             ConnectionState.CONNECTED -> "Glasses connected"
             ConnectionState.CONNECTING -> "Waiting for glasses — will connect when powered on"
             ConnectionState.SCANNING -> "Scanning for glasses…"
@@ -675,7 +675,7 @@ class NotifGlassService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val disconnectIntent = PendingIntent.getService(
-            this, 1, Intent(this, NotifGlassService::class.java).apply { action = ACTION_DISCONNECT },
+            this, 1, Intent(this, NotifGlassService::class.java).apply { action = ACTION_SHUTDOWN },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val standby = _standby.value
@@ -695,10 +695,10 @@ class NotifGlassService : Service() {
             .setOngoing(true)
             .addAction(
                 android.R.drawable.ic_media_pause,
-                if (standby) "Resume" else "Pause for workout",
+                if (standby) "Resume" else "Pause",
                 standbyIntent,
             )
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Disconnect", disconnectIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Shutdown", disconnectIntent)
             .build()
     }
 
@@ -731,7 +731,7 @@ class NotifGlassService : Service() {
         private const val NOTIFICATION_ID = 7421
         private val RECONNECT_TOKEN = Any()
         private val DISCOVER_TOKEN = Any()
-        const val ACTION_DISCONNECT = "eu.depau.activelooknotifications.action.DISCONNECT"
+        const val ACTION_SHUTDOWN = "eu.depau.activelooknotifications.action.SHUTDOWN"
         const val ACTION_START_FROM_BOOT = "eu.depau.activelooknotifications.action.START_FROM_BOOT"
         const val ACTION_STANDBY_ON = "eu.depau.activelooknotifications.action.STANDBY_ON"
         const val ACTION_STANDBY_OFF = "eu.depau.activelooknotifications.action.STANDBY_OFF"
