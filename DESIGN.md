@@ -256,12 +256,15 @@ NotifList(p) ──gesture──▶ NotifList(p+1);  NotifList(last) ──gestu
 
 A foreground service of type `connectedDevice` owns the persistent BLE link and holds a
 non-ref-counted `PARTIAL_WAKE_LOCK` so the connection survives doze. `START_STICKY` (Android
-restarts it if killed); an explicit Disconnect returns `START_NOT_STICKY` + `stopSelf()` so it isn't
-resurrected.
+restarts it if killed); the FGS notification's **Shutdown** action returns `START_NOT_STICKY` +
+`stopSelf()` so it isn't resurrected.
 
 - **`shouldBeConnected` is the source of truth for intent-to-connect**, kept separate from momentary
   BLE state. Reconnect logic only fires when the user actually wants a connection.
-- **Standby ("Pause for workout", `_standby`)** is a second gate orthogonal to `shouldBeConnected`.
+- **Always connects**: there is no on/off toggle. `maybeAutoConnect()` (onCreate) unconditionally
+  connects unless already connected or in standby, so opening the app (or boot) starts scanning right
+  away. The only "off" states are standby (paused) and Shutdown.
+- **Standby ("Pause", `_standby`)** is a second gate orthogonal to `shouldBeConnected`.
   The glasses lock to whoever connects first, so to let another central (a Garmin watch's ActiveLook
   app) take them this app must *deliberately* release the link and stop reconnecting — passive
   back-off can't help. `enterStandby()` tears down the link (`teardownGlasses()` → `disconnect()`)
@@ -272,8 +275,7 @@ resurrected.
   `connectGlasses`/`disconnectGlasses` both reset it.
 - **Fast-reconnect**: the paired `SerializedGlasses` is Java-serialized + Base64'd into DataStore;
   on reconnect the SDK connects directly (skipping a scan), falling back to a scan on any failure.
-- **Auto-connect** hops to the main thread (`handler.post`) because BLE/FGS calls require it, and
-  re-checks `shouldBeConnected` inside the post to avoid a double-connect race.
+  `maybeAutoConnect()` hops to the main thread (`handler.post`) because BLE/FGS calls require it.
 - **Start-on-boot** (`BootReceiver`) reuses the connect path: on `BOOT_COMPLETED` it starts the
   service with `ACTION_START_FROM_BOOT`, which calls `connectGlasses()`. The receiver only starts
   when the setting is on, a device is paired, and `BLUETOOTH_CONNECT` is granted — otherwise the FGS
@@ -370,5 +372,5 @@ device-calibrated first guesses — read README "On-device fine-tuning" before n
 - **Fonts**: desired Small/Medium/Large = 24/35/49, fallback ids 0/2/3.
 - **Icons**: `ICON_SIZE=48`, `ICON_THRESHOLD=128`, 4bpp heatshrink.
 - **Animation**: `ANIM_FRAMES=4` (1 = instant), `ANIM_FRAME_MS=35`, `ANIM_TRAVEL=40`.
-- **Feature flags**: brightness 12, show-icon, animate, `BOOST_CONNECTION_PRIORITY`.
+- **Feature flags**: brightness 12, animate, `BOOST_CONNECTION_PRIORITY`.
 - **Differ knobs**: `MAX_DIRTY_RECTS=4`, `MERGE_SLOP=8`, `FULL_REDRAW_PCT=70`.

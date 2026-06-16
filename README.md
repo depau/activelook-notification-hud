@@ -69,16 +69,17 @@ Constants in `Const.kt` are now grounded in the docs, but a few pixel offsets ma
 
 ## Settings
 
-- **Apps to mirror** — allowlist ("only selected") or denylist ("all except selected").
+- **App notifications** — allowlist ("only selected") or denylist ("all except selected").
+- **Connection** — glasses device picker, forget device, start-on-boot, allow other apps to pause.
 - **Auto-brightness (ALS)** — when on, the glasses set brightness from ambient light and the
   brightness slider is ignored; turn it off to use the slider.
-- Timeouts (app splash / peek / open), brightness, show-icon, animate, auto-connect, start-on-boot.
+- Brightness, a **Timing** dialog (app-splash / peek / open durations), animate transitions.
 - Mobile signal + network type on the idle screen only appears if `READ_PHONE_STATE` is granted
   (grant it from Settings; otherwise the right side of the idle bar is blank).
 
 ## Automation
 
-"Pause for workout" can be toggled by an **explicit broadcast** to `StandbyReceiver`, so an
+"Pause" can be toggled by an **explicit broadcast** to `StandbyReceiver`, so an
 automation app (Tasker, MacroDroid) can engage it when an activity starts and release it when it
 ends. Send one of these actions to package `eu.depau.activelooknotifications`:
 

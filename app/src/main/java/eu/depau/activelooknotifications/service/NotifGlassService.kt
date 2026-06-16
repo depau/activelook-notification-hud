@@ -78,10 +78,6 @@ class NotifGlassService : Service() {
     private val _statusMessage = MutableStateFlow("Idle")
     val statusMessage: StateFlow<String> = _statusMessage
 
-    private val _running = MutableStateFlow(false)
-    /** Whether mirroring is enabled (the user turned it on); independent of momentary BLE state. */
-    val running: StateFlow<Boolean> = _running
-
     private val _standby = MutableStateFlow(false)
     /**
      * "Pause": when true the BLE link is released and reconnection is suppressed so
@@ -257,7 +253,6 @@ class NotifGlassService : Service() {
     fun connectGlasses() {
         shouldBeConnected = true
         _standby.value = false
-        _running.value = true
         _statusMessage.value = "Connecting glasses…"
         acquireWakeLock()
         if (canStartForegroundService()) startForegroundServiceNotification("Waiting for glasses — will connect when powered on")
@@ -268,7 +263,6 @@ class NotifGlassService : Service() {
     fun disconnectGlasses() {
         shouldBeConnected = false
         _standby.value = false
-        _running.value = false
         _statusMessage.value = "Disconnected"
         handler.removeCallbacksAndMessages(RECONNECT_TOKEN)
         stopScan()
@@ -304,8 +298,6 @@ class NotifGlassService : Service() {
         updateNotification()
         if (shouldBeConnected) tryFastReconnectThenScan()
     }
-
-    val isRunning: Boolean get() = shouldBeConnected
 
     /**
      * Forget the saved glasses and reconnect by scanning fresh (so a different device can be picked
@@ -445,7 +437,6 @@ class NotifGlassService : Service() {
         handler.removeCallbacksAndMessages(DISCOVER_TOKEN)
         stopScan()
         shouldBeConnected = true
-        _running.value = true
         acquireWakeLock()
         if (canStartForegroundService()) startForegroundServiceNotification("Waiting for glasses — will connect when powered on")
         phoneStatus?.start()
@@ -463,7 +454,6 @@ class NotifGlassService : Service() {
         connectedGlasses = glasses
         renderer.glasses = glasses
         _glassesState.value = ConnectionState.CONNECTED
-        _running.value = true
         _statusMessage.value = "Connected: ${glasses.name}"
 
         // Persist for fast reconnect next time, and raise the link's connection priority.
